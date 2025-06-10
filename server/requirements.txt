@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+yfinance
+pandas
+python-dotenv
+deep_translator
+matplotlib
+requests
+openai~=1.0 # 최신 버전의 OpenAI 라이브러리 (버전에 따라 호환성 유의)

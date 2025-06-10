@@ -1,41 +1,81 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
+# =================================================================
+# 운영체제 및 에디터 관련 파일 (OS / Editor)
+# =================================================================
+# macOS
 .DS_Store
-*.pem
 
-# debug
+# Windows
+Thumbs.db
+
+# VSCode 에디터 설정
+.vscode/*
+# 단, 팀원과 공유할 설정이 있다면 아래처럼 !를 사용해 예외처리합니다.
+# !.vscode/settings.json
+# !.vscode/extensions.json
+# !.vscode/launch.json
+
+
+# =================================================================
+# Node.js / Next.js 관련 (Frontend)
+# =================================================================
+# 의존성 패키지
+node_modules/
+
+# 빌드 결과물
+.next/
+client/.next/
+out/
+
+# 환경 변수 파일 (API 키 등 민감 정보 포함)
+.env.local
+.env.development.local
+.env.production.local
+client/.env
+
+# 로그 파일
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
+# TypeScript 빌드 정보
 *.tsbuildinfo
+
+# Next.js 자동 생성 타입 파일
 next-env.d.ts
+
+
+# =================================================================
+# Python 관련 (Backend)
+# =================================================================
+# 파이썬 가상환경
+venv/
+.venv/
+env/
+.env/
+include/
+lib/
+pip-selfcheck.json
+
+# 파이썬 캐시 파일
+__pycache__/
+server/__pycache__/
+*.pyc
+
+# 배포/빌드 관련
+dist/
+build/
+*.egg-info/
+
+# 환경 변수 파일 (python-dotenv)
+server/.env
+
+
+# =================================================================
+# 기타 (Miscellaneous)
+# =================================================================
+# 인증서 개인 키 파일
+*.pem
+
+# 테스트 커버리지 리포트
+coverage/
+.coverage
