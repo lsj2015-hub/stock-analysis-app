@@ -7,5 +7,6 @@ export interface StockNews {
   publishedDate: string;
   source: string;
   summary: string;
-  translated?: string; // 번역된 텍스트 (선택적)
+  translatedTitle?: string;
+  translatedSummary?: string;
 }

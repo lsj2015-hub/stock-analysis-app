@@ -1,13 +1,13 @@
-// frontend/src/app/sectors/AiQuestionSection.tsx
 'use client';
 
+import { useState, useRef, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { useState, useRef, useEffect } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal, Lightbulb, User } from 'lucide-react';
 import { StockHistoryData, FinancialStatementData } from '@/types/stock';
-import { StockNews } from '../../types/common';
+import { StockNews } from '@/types/common';
+import { askAi } from '@/lib/api';
 
 interface ChatMessage {
   id: number;
@@ -20,14 +20,14 @@ interface AiQuestionSectionProps {
   symbol: string;
   financialData: FinancialStatementData | null;
   stockHistoryData: StockHistoryData[] | null;
-  newsData: StockNews[] | null
+  newsData: StockNews[] | null;
 }
 
 export default function AiQuestionSection({
   symbol,
   financialData,
   stockHistoryData,
-  newsData
+  newsData,
 }: AiQuestionSectionProps) {
   const [question, setQuestion] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -40,9 +40,9 @@ export default function AiQuestionSection({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // ✅ 상태 업데이트 로직을 더 안정적으로 수정한 함수
   const handleAskAi = async () => {
-    if (!question.trim()) {
-      setError('질문을 입력해주세요.');
+    if (!question.trim() || loading) {
       return;
     }
 
@@ -53,67 +53,55 @@ export default function AiQuestionSection({
       timestamp: new Date().toLocaleTimeString('ko-KR'),
     };
 
+    // 1. 사용자 메시지를 먼저 화면에 표시합니다.
     setMessages((prevMessages) => [...prevMessages, userMessage]);
+    console.log('[DEBUG] 사용자 메시지 추가 후:', [...messages, userMessage]);
+
     setQuestion('');
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/chat-with-ai', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: userMessage.text,
-          symbol: symbol,
-          financialData: financialData
-            ? JSON.stringify(financialData, null, 2)
-            : '재무 데이터 없음',
-          historyData: stockHistoryData
-            ? JSON.stringify(stockHistoryData, null, 2)
-            : '주가 히스토리 데이터 없음',
-          newsData: newsData
-            ? JSON.stringify(newsData, null, 2)
-            : '뉴스 데이터 없음',
-        }),
-      });
+      // ✅ financialData와 historyData는 이미 객체이므로 JSON.stringify를 제거합니다.
+      // askAi 함수 내부에서 처리하므로 여기서 문자열로 만들 필요가 없습니다.
+      const data = await askAi(
+        symbol,
+        userMessage.text,
+        financialData, // 객체 그대로 전달
+        stockHistoryData, // 객체 그대로 전달
+        newsData
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.detail || 'AI 응답을 가져오는데 실패했습니다.'
-        );
-      }
+      console.log('[DEBUG] AI 응답 수신:', data);
 
-      const data = await response.json();
-      console.log({data: data})
       const aiResponseMessage: ChatMessage = {
-        id: Date.now() + 1,
+        id: Date.now() + 1, // 충돌 방지를 위해 +1
         sender: 'ai',
         text: data.response,
         timestamp: new Date().toLocaleTimeString('ko-KR'),
       };
+
+      // 2. AI 응답 메시지를 화면에 추가합니다.
       setMessages((prevMessages) => [...prevMessages, aiResponseMessage]);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      console.error('Error asking AI:', err);
-      setError(
-        `AI 응답을 가져오는 중 오류가 발생했습니다: ${
-          err.message || String(err)
-        }`
-      );
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        {
-          id: Date.now() + 1,
-          sender: 'ai',
-          text: `죄송합니다. AI 응답을 가져오는 데 문제가 발생했습니다: ${
-            err.message || String(err)
-          }`,
-          timestamp: new Date().toLocaleTimeString('ko-KR'),
-        },
+      console.log('[DEBUG] AI 메시지 추가 후:', [
+        ...messages,
+        userMessage,
+        aiResponseMessage,
       ]);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('Error asking AI:', errorMessage);
+      setError(`AI 응답을 가져오는 중 오류가 발생했습니다: ${errorMessage}`);
+
+      const errorResponseMessage: ChatMessage = {
+        id: Date.now() + 1,
+        sender: 'ai',
+        text: `죄송합니다. AI 응답을 가져오는 데 문제가 발생했습니다: ${errorMessage}`,
+        timestamp: new Date().toLocaleTimeString('ko-KR'),
+      };
+
+      // 3. 에러 메시지를 화면에 추가합니다.
+      setMessages((prevMessages) => [...prevMessages, errorResponseMessage]);
     } finally {
       setLoading(false);
     }
@@ -133,22 +121,9 @@ export default function AiQuestionSection({
         <span className="font-semibold text-lg">
           David에게 자유롭게 질문하세요
         </span>
-        <span className="ml-2 text-xs text-muted-foreground">
-          (조회한 데이터 기반)
-        </span>
       </div>
 
-      {/* ⭐ 여기가 핵심: 채팅 기록 표시 영역 */}
       <div className="flex-1 overflow-y-auto pr-2 mb-4 custom-scrollbar">
-        {messages.length === 0 && (
-          <div className="text-center text-gray-500 py-10">
-            <p>궁금한 점을 입력하고 David에게 질문해 보세요!</p>
-            <p className="text-sm mt-2">
-              David가 조회된 재무 데이터와 주가 히스토리 데이터를 기반으로
-              답변합니다.
-            </p>
-          </div>
-        )}
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -162,19 +137,20 @@ export default function AiQuestionSection({
               </div>
             )}
             <div
-              className={`max-w-[70%] p-3 rounded-lg shadow-sm text-sm ${
+              className={`max-w-[75%] p-3 rounded-lg shadow-sm text-sm ${
                 msg.sender === 'user'
                   ? 'bg-blue-500 text-white rounded-br-none'
                   : 'bg-gray-100 text-gray-800 rounded-bl-none'
               }`}
             >
+              {/* `dangerouslySetInnerHTML`을 사용하여 \n을 <br>로 변환하여 줄바꿈을 표시 */}
               <div
                 dangerouslySetInnerHTML={{
                   __html: msg.text.replace(/\n/g, '<br/>'),
                 }}
               />
               <div
-                className={`text-[0.7rem] mt-1 ${
+                className={`text-[0.7rem] mt-1 text-right w-full ${
                   msg.sender === 'user' ? 'text-blue-200' : 'text-gray-500'
                 }`}
               >
@@ -190,6 +166,7 @@ export default function AiQuestionSection({
         ))}
         <div ref={messagesEndRef} />
       </div>
+
       <div className="flex flex-col gap-2 items-end">
         <Textarea
           placeholder="David에게 궁금한 점을 입력하세요 (예: 이 기업의 최근 매출 추이, 주가 변동 요인 등)"
@@ -207,13 +184,6 @@ export default function AiQuestionSection({
           {loading ? '답변 생성 중...' : 'David에게 질문하기'}
         </Button>
       </div>
-
-      {/* 로딩 및 에러 메시지: 입력/버튼 영역 아래에 표시 */}
-      {loading && (
-        <div className="mt-4 p-4 border rounded bg-blue-50 text-blue-800">
-          <p>AI가 답변을 생성 중입니다. 잠시만 기다려 주세요...</p>
-        </div>
-      )}
 
       {error && (
         <Alert variant="destructive" className="mt-4">

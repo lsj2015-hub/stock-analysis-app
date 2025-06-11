@@ -6,4 +6,8 @@ python-dotenv
 deep_translator
 matplotlib
 requests
+cachetools
+httpx
+pydantic[email]
+pydantic-settings
 openai~=1.0 # 최신 버전의 OpenAI 라이브러리 (버전에 따라 호환성 유의)

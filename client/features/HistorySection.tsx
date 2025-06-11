@@ -17,7 +17,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { getStockHistory } from '@/lib/data-manager';
+import { getStockHistory } from '@/lib/api';
 import { StockHistoryData, StockHistoryApiResponse } from '@/types/stock';
 
 import {
@@ -73,7 +73,7 @@ export default function HistorySection({ symbol, setStockHistoryData }: HistoryS
     if (!symbol || !startDate || !endDate) {
       setError('종목 코드와 날짜를 모두 입력해주세요.');
       setHistoryData(null);
-      setStockHistoryData(null)
+      setStockHistoryData(null);
       setActualEndDate(null);
       return;
     }
@@ -83,6 +83,7 @@ export default function HistorySection({ symbol, setStockHistoryData }: HistoryS
     setHistoryData(null);
     setStockHistoryData(null);
     setActualEndDate(null);
+    setShowChartAndTable(false); // ✅ 데이터가 없을 때 차트/테이블 숨김 처리 추가
 
     try {
       const apiResponse: StockHistoryApiResponse | null = await getStockHistory(
@@ -114,7 +115,9 @@ export default function HistorySection({ symbol, setStockHistoryData }: HistoryS
           err.message || String(err)
         }`
       );
+      // 모든 관련 상태 초기화
       setHistoryData(null);
+      setStockHistoryData(null);
       setActualEndDate(null);
       setShowChartAndTable(false);
     } finally {
