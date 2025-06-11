@@ -1,3 +1,4 @@
+<pre>```
 client/
 ├── app/
 │   ├── (main)/
@@ -53,7 +54,7 @@ server/
 ├── .env
 ├── requirements.txt
 ├── yahoo_finance_rss_AAPL.xml
-
+```</pre>
 
 * client 실행
 npm run dev
