@@ -164,9 +164,6 @@ export default function NewsSection({ symbol, setNewsData }: NewsSectionProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Globe size={20} /> 관련 최신 뉴스
-          <span className="ml-4 text-base font-semibold text-gray-700">
-            ({symbol})
-          </span>
         </CardTitle>
       </CardHeader>
       <CardContent>{renderContent()}</CardContent>

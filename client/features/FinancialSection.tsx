@@ -154,9 +154,6 @@ export default function FinancialSection({
         <CardTitle className="flex items-center gap-2">
           <span className="text-lg">📊</span>
           <span className="font-semibold text-lg">재무제표 상세</span>
-          <span className="ml-4 text-base font-semibold text-gray-700">
-            ({symbol})
-          </span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -203,7 +200,7 @@ export default function FinancialSection({
           )}
 
           {!loading && !activeTab && !error && (
-            <p className="text-sm text-center text-gray-500 pt-10">
+            <p className="text-sm text-center text-gray-500 pt-6">
               상단의 버튼을 클릭하여 재무제표를 조회해보세요.
             </p>
           )}
