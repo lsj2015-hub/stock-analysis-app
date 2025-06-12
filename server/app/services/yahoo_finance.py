@@ -51,4 +51,15 @@ class YahooFinanceService:
         
     def get_officers(self, symbol: str) -> list | None:
         info = self.get_stock_info(symbol)
-        return info.get("companyOfficers") if info else None
+        if info:
+            officers = info.get("companyOfficers")
+            # ✅ DEBUG: companyOfficers 필드의 존재 여부와 내용 확인
+            if officers is None:
+                print(f"[DEBUG yfs.get_officers] '{symbol}' companyOfficers 필드 없음. (info keys: {info.keys()})")
+            elif not officers:
+                print(f"[DEBUG yfs.get_officers] '{symbol}' companyOfficers 필드는 있으나, 비어있는 리스트.")
+            else:
+                print(f"[DEBUG yfs.get_officers] '{symbol}' companyOfficers 데이터 {len(officers)}개 발견.")
+            return officers
+        print(f"[DEBUG yfs.get_officers] '{symbol}' get_stock_info 실패로 officers 정보 없음.")
+        return None

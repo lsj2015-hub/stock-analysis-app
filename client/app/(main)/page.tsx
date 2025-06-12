@@ -45,18 +45,13 @@ export default function Home() {
         <h1 className="text-2xl font-bold tracking-tight">기업 정보 조회</h1>
       </header>
       <div className="max-w-5xl mx-auto py-8 flex flex-col gap-6">
-        {/* SearchSection은 이제 스스로 데이터를 조회하고 표시합니다. */}
         <SearchSection symbol={symbol} setSymbol={handleSymbolChange} />
-
-        {/* 다른 섹션들은 AI 컨텍스트를 위해 데이터를 부모로 전달(lift-up)합니다. */}
         <FinancialSection symbol={symbol} setFinancialData={setFinancialData} />
         <HistorySection
           symbol={symbol}
           setStockHistoryData={setStockHistoryData}
         />
         <NewsSection symbol={symbol} setNewsData={setNewsData} />
-
-        {/* AiQuestionSection은 취합된 데이터를 props로 받습니다. */}
         <AiQuestionSection
           symbol={symbol}
           financialData={financialData}

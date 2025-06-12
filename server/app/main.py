@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 from cachetools import TTLCache
 import openai
-import httpx # ✅ httpx를 상단으로 이동
+import httpx #
 
 # --- 내부 모듈 임포트 ---
 from .config import Settings
@@ -89,7 +89,6 @@ async def get_yfinance_info(
     return info
 
 # --- ‼️ API 엔드포인트 코드는 변경할 필요 없습니다. ---
-# Depends()가 위에서 수정한 의존성 주입 함수를 그대로 사용합니다.
 
 @app.get("/", tags=["Root"])
 def read_root():
@@ -131,7 +130,6 @@ async def get_market_data(
 async def get_analyst_recommendations(info: dict = Depends(get_yfinance_info)):
     return formatting.format_analyst_recommendations(info)
 
-# ✨ 주요 임원 정보 조회
 @app.get("/api/stock/{symbol}/officers", response_model=OfficersResponse, tags=["Stock Details"])
 async def get_stock_officers(
     symbol: str,
@@ -140,6 +138,9 @@ async def get_stock_officers(
 ):
 
     officers_raw = await run_in_threadpool(yfs.get_officers, symbol.upper())
+    # ✅ DEBUG: officers_raw의 실제 값 확인
+    print(f"[DEBUG main.get_stock_officers] '{symbol}' officers_raw: {officers_raw}")
+
     if not officers_raw:
         return {"officers": []}
 
@@ -150,6 +151,7 @@ async def get_stock_officers(
         for o in top_officers
     ]
     return {"officers": formatted_officers}
+
 
 # ✨ 재무제표 조회 (income, balance, cashflow)
 @app.get("/api/stock/{symbol}/financials/{statement_type}", response_model=FinancialStatementResponse, tags=["Stock Details"])
@@ -227,6 +229,10 @@ async def chat_with_ai(
         )
         return {"response": response}
     except openai.APIError as e:
-        raise HTTPException(status_code=e.status_code or 503, detail=f"AI 서비스에 문제가 발생했습니다: {e.code}")
+        print(f"[ERROR main.chat_with_ai] OpenAI API 오류: status_code={e.status_code}, code={e.code}, message={e.message}, type={e.type}")
+        raise HTTPException(status_code=e.status_code or 503, detail=f"AI 서비스에 문제가 발생했습니다: {e.code} - {e.message}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI 응답 생성 중 서버 오류 발생: {e}")
+        import traceback
+        print(f"[ERROR main.chat_with_ai] AI 응답 생성 중 서버 오류 발생: {e}")
+        print(traceback.format_exc()) # 전체 트레이스백 출력
+        raise HTTPException(status_code=500, detail=f"AI 응답 생성 중 서버 오류 발생: {str(e)}")

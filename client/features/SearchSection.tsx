@@ -24,7 +24,6 @@ import { ProfileSkeleton } from '../components/skeletons/ProfileSkeleton';
 import { GridSkeleton } from '../components/skeletons/GridSkeleton';
 import { OfficersSkeleton } from '../components/skeletons/OfficersSkeleton';
 
-
 type ActiveSection =
   | 'profile'
   | 'summary'
@@ -168,7 +167,7 @@ export default function SearchSection({
         metrics: <MetricsDisplay data={data} />,
         market: <MarketDataDisplay data={data} />,
         recommendations: <RecommendationsDisplay data={data} />,
-        officers: <OfficersDisplay data={data} />,
+        officers: <OfficersDisplay data={data.officers} />,
       };
       return (
         <Card className="mt-2 bg-gray-50">

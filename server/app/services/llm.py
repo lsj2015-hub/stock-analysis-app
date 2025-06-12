@@ -1,6 +1,7 @@
-# app/services/llm.py
+# server/app/services/llm.py
 import openai
-from typing import List, Dict
+from typing import List, Dict, Any # Any 임포트 추가
+import re # 정규식 모듈 임포트
 from ..config import Settings
 
 class LLMService:
@@ -10,7 +11,7 @@ class LLMService:
     def _make_prompt(self, symbol: str, user_question: str, financial_data: str, history_data: str, news_data: List[Dict]) -> List[Dict[str, str]]:
         news_string = "\n".join([f"- {item['title']}" for item in news_data]) if news_data else "제공된 뉴스 데이터 없음"
         system_message_content = f"""
-        당신은 유능한 주식 분석 AI 'David'입니다. 제공된 데이터를 기반으로 명확하고 통찰력있게 답변해주세요.
+        당신은 유능한 주식 분석 AI 'David'입니다. 제공된 데이터를 기반으로 명확하고 통찰있게 답변해주세요.
         - 분석 대상: {symbol}
         - 재무 데이터: {financial_data}
         - 주가 히스토리: {history_data}

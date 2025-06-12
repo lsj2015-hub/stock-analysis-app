@@ -1,3 +1,4 @@
+// client/features/AiQuestionSection.tsx
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -6,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal, Lightbulb, User } from 'lucide-react';
 import { StockHistoryData, FinancialStatementData } from '@/types/stock';
-import { StockNews } from '@/types/common';
+import { StockNews } from '@/types/common'; // StockNews는 common.d.ts에서 임포트
 import { askAi } from '@/lib/api';
 
 interface ChatMessage {
@@ -55,20 +56,18 @@ export default function AiQuestionSection({
 
     // 1. 사용자 메시지를 먼저 화면에 표시합니다.
     setMessages((prevMessages) => [...prevMessages, userMessage]);
-    console.log('[DEBUG] 사용자 메시지 추가 후:', [...messages, userMessage]);
+    // console.log('[DEBUG] 사용자 메시지 추가 후:', [...messages, userMessage]); // 이 로그는 이전 상태를 참조하므로 제거 또는 신중하게 사용
 
     setQuestion('');
     setLoading(true);
     setError(null);
 
     try {
-      // ✅ financialData와 historyData는 이미 객체이므로 JSON.stringify를 제거합니다.
-      // askAi 함수 내부에서 처리하므로 여기서 문자열로 만들 필요가 없습니다.
       const data = await askAi(
         symbol,
         userMessage.text,
-        financialData, // 객체 그대로 전달
-        stockHistoryData, // 객체 그대로 전달
+        financialData, // JSON.stringify는 api.ts에서 처리
+        stockHistoryData, // JSON.stringify는 api.ts에서 처리
         newsData
       );
 
@@ -83,14 +82,31 @@ export default function AiQuestionSection({
 
       // 2. AI 응답 메시지를 화면에 추가합니다.
       setMessages((prevMessages) => [...prevMessages, aiResponseMessage]);
-      console.log('[DEBUG] AI 메시지 추가 후:', [
-        ...messages,
-        userMessage,
-        aiResponseMessage,
-      ]);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('Error asking AI:', errorMessage);
+      // console.log('[DEBUG] AI 메시지 추가 후:', [...messages, userMessage, aiResponseMessage]); // 이 로그는 이전 상태를 참조하므로 제거 또는 신중하게 사용
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      // err 타입을 any로 명시하여 접근 용이
+      let errorMessage = '알 수 없는 오류가 발생했습니다.';
+      // FastAPI HTTPException의 detail 필드를 더 명확하게 파싱 시도
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (err && typeof err === 'object' && err.detail) {
+        if (Array.isArray(err.detail)) {
+          // 예를 들어, Pydantic ValidationError 같은 경우 detail이 리스트일 수 있음
+          errorMessage = err.detail
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((d: any) => d.msg || d.message || String(d))
+            .join(', ');
+        } else if (typeof err.detail === 'string') {
+          errorMessage = err.detail;
+        } else {
+          errorMessage = JSON.stringify(err.detail); // 객체인 경우 JSON 문자열로 변환
+        }
+      } else {
+        errorMessage = String(err);
+      }
+
+      console.error('Error asking AI:', err); // 원본 오류 객체 로깅
       setError(`AI 응답을 가져오는 중 오류가 발생했습니다: ${errorMessage}`);
 
       const errorResponseMessage: ChatMessage = {

@@ -89,3 +89,4 @@ export interface StockHistoryApiResponse {
   endDate: string;
   data: StockHistoryData[];
 }
+
