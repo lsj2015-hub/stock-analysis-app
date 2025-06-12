@@ -1,9 +1,11 @@
-from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi import FastAPI, HTTPException, Query, Depends, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 from cachetools import TTLCache
 import openai
-import httpx #
+import httpx
+import logging
 
 # --- 내부 모듈 임포트 ---
 from .config import Settings
@@ -18,6 +20,13 @@ from .services.news import NewsService
 from .services.translation import TranslationService
 from .services.llm import LLMService
 from .core import formatting
+
+# 로거 설정 (print 대신 사용하면 더 체계적인 로깅이 가능합니다)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # --- ✅ 애플리케이션 및 서비스 인스턴스 생성 ---
 # 앱이 시작될 때 단 한 번만 실행되어 객체들이 생성됩니다.
@@ -45,8 +54,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- ✅ 2. 의존성 주입 함수 수정 ---
-# @lru_cache를 제거하고, 미리 생성된 서비스 인스턴스를 반환합니다.
+# 전역 예외 핸들러
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    HTTPException 외의 처리되지 않은 모든 예외를 처리합니다.
+    서버가 죽는 것을 방지하고 일관된 오류 응답을 반환합니다.
+    """
+    logger.error(f"처리되지 않은 예외 발생: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "서버 내부에서 예상치 못한 오류가 발생했습니다."},
+    )
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """
+    HTTPException이 발생했을 때 로그를 남깁니다.
+    """
+    logger.warning(f"HTTP 예외 발생 (클라이언트 오류): Status Code={exc.status_code}, Detail='{exc.detail}'")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=exc.headers,
+    )
+
+# --- ✅ 의존성 주입 함수 ---
 def get_settings() -> Settings:
     return settings
 
@@ -75,7 +108,7 @@ async def get_exchange_rate(settings: Settings = Depends(get_settings)) -> float
             exchange_rate_cache['rate'] = rate
             return rate
     except Exception as e:
-        print(f"환율 정보 조회 실패: {e}")
+        logger.error(f"환율 정보 조회 실패: {e}", exc_info=True)
         return settings.DEFAULT_KRW_RATE
 
 # --- 공통 의존성: yfinance 정보 조회 ---
@@ -85,11 +118,10 @@ async def get_yfinance_info(
 ) -> dict:
     info = await run_in_threadpool(yfs.get_stock_info, symbol.upper())
     if not info:
-        raise HTTPException(status_code=404, detail=f"'{symbol}'에 대한 기업 정보를 찾을 수 없습니다.")
+        raise HTTPException(status_code=404, detail=f"'{symbol.upper()}'에 대한 기업 정보를 찾을 수 없습니다.")
     return info
 
 # --- ‼️ API 엔드포인트 코드는 변경할 필요 없습니다. ---
-
 @app.get("/", tags=["Root"])
 def read_root():
     return {"message": "Stock App API v2.0.0"}
@@ -136,12 +168,13 @@ async def get_stock_officers(
     yfs: YahooFinanceService = Depends(get_yahoo_finance_service),
     rate: float = Depends(get_exchange_rate)
 ):
-
     officers_raw = await run_in_threadpool(yfs.get_officers, symbol.upper())
-    # ✅ DEBUG: officers_raw의 실제 값 확인
-    print(f"[DEBUG main.get_stock_officers] '{symbol}' officers_raw: {officers_raw}")
-
+    
+    if officers_raw is None:
+         # 서비스 단에서 None을 반환하는 경우는 이미 로깅되었으므로 여기선 바로 반환
+        return {"officers": []}
     if not officers_raw:
+        logger.info(f"'{symbol.upper()}'에 대한 임원 정보가 비어있습니다.")
         return {"officers": []}
 
     top_officers = sorted(officers_raw, key=lambda x: x.get('totalPay', 0), reverse=True)[:5]
@@ -152,7 +185,6 @@ async def get_stock_officers(
     ]
     return {"officers": formatted_officers}
 
-
 # ✨ 재무제표 조회 (income, balance, cashflow)
 @app.get("/api/stock/{symbol}/financials/{statement_type}", response_model=FinancialStatementResponse, tags=["Stock Details"])
 async def get_financial_statement(
@@ -161,13 +193,16 @@ async def get_financial_statement(
 ):
 
     if statement_type not in ["income", "balance", "cashflow"]:
-        raise HTTPException(status_code=400, detail="잘못된 재무제표 유형입니다.")
+        raise HTTPException(status_code=400, detail="잘못된 재무제표 유형입니다. 'income', 'balance', 'cashflow' 중 하나여야 합니다.")
 
     fin_data = await run_in_threadpool(yfs.get_financials, symbol.upper())
-    df_raw = fin_data.get(statement_type) if fin_data else None
+    if not fin_data:
+        raise HTTPException(status_code=404, detail=f"'{symbol.upper()}'에 대한 재무 데이터를 가져오지 못했습니다.")
+    
+    df_raw = fin_data.get(statement_type)
 
     if df_raw is None or df_raw.empty:
-        raise HTTPException(status_code=404, detail=f"{statement_type} 데이터를 찾을 수 없습니다.")
+        raise HTTPException(status_code=404, detail=f"'{symbol.upper()}'에 대한 {statement_type} 데이터를 찾을 수 없습니다.")
         
     return formatting.format_financial_statement_response(df_raw, statement_type)
 
@@ -182,7 +217,7 @@ async def get_stock_history(
 
     df_raw, adjusted_end = await run_in_threadpool(yfs.get_price_history, symbol.upper(), start_date, end_date)
     if df_raw is None or df_raw.empty:
-        raise HTTPException(status_code=404, detail="주가 데이터를 찾을 수 없습니다.")
+        raise HTTPException(status_code=404, detail=f"해당 기간의 주가 데이터를 찾을 수 없습니다.")
     
     display_df = formatting.process_price_dataframe(df_raw)
     
@@ -200,10 +235,11 @@ async def get_yahoo_rss_news(
 ):
     """Yahoo Finance RSS 뉴스 조회"""
     news_list = await ns.get_yahoo_rss_news(symbol.upper(), limit)
+    if not news_list:
+        logger.warning(f"'{symbol.upper()}'에 대한 뉴스를 가져오지 못했습니다.")
     return {"news": news_list}
 
 # --- 유틸리티 및 AI 엔드포인트 ---
-
 @app.post("/api/util/translate", response_model=TranslationResponse, tags=["Utilities"])
 async def translate_text(
     req: TranslationRequest,
@@ -229,10 +265,9 @@ async def chat_with_ai(
         )
         return {"response": response}
     except openai.APIError as e:
-        print(f"[ERROR main.chat_with_ai] OpenAI API 오류: status_code={e.status_code}, code={e.code}, message={e.message}, type={e.type}")
-        raise HTTPException(status_code=e.status_code or 503, detail=f"AI 서비스에 문제가 발생했습니다: {e.code} - {e.message}")
-    except Exception as e:
-        import traceback
-        print(f"[ERROR main.chat_with_ai] AI 응답 생성 중 서버 오류 발생: {e}")
-        print(traceback.format_exc()) # 전체 트레이스백 출력
-        raise HTTPException(status_code=500, detail=f"AI 응답 생성 중 서버 오류 발생: {str(e)}")
+        logger.error(f"OpenAI API 오류 발생: {e.status_code} - {e.message}", exc_info=True)
+        # APIError에서 받은 상태 코드와 메시지를 그대로 클라이언트에게 전달
+        raise HTTPException(
+            status_code=e.status_code or 503, 
+            detail=f"AI 서비스에 문제가 발생했습니다: {e.message}"
+        )

@@ -11,186 +11,144 @@ import {
   StockHistoryApiResponse,
   StockHistoryData,
 } from '@/types/stock';
-import { StockNews } from '../types/common'; // StockNews는 common.d.ts에서 임포트
+import { StockNews } from '../types/common';
 
 // 모든 API 요청에 대한 기본 URL
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
+  // 1. API 에러를 위한 커스텀 클래스
+export class APIError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'APIError';
+    this.status = status;
+  }
+}
+
 interface TranslationResponse {
   translated_text: string;
 }
 
-// 주식 프로필 정보 조회
-export async function getStockProfile(symbol: string): Promise<StockProfile> {
-  const response = await fetch(`${API_BASE_URL}/api/stock/${symbol}/profile`);
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(
-      errorData.detail || '기업 프로필 정보를 가져오지 못했습니다.'
-    );
+// 모든 API 함수에 일관된 에러 핸들링 적용
+const fetchAPI = async <T>(
+  url: string,
+  options: RequestInit = {}
+): Promise<T> => {
+  try {
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      const errorMessage =
+        errorData?.detail ||
+        `서버에서 오류가 발생했습니다. (상태 코드: ${response.status})`;
+      throw new APIError(errorMessage, response.status);
+    }
+    return response.json();
+  } catch (error) {
+    if (error instanceof APIError) {
+      throw error;
+    }
+    console.error(`API 호출 실패: ${url}`, error);
+    throw new Error('서버와 통신할 수 없습니다. 네트워크 연결을 확인해주세요.');
   }
-  return response.json();
-}
+};
+
+// 주식 프로필 정보 조회
+export const getStockProfile = (symbol: string): Promise<StockProfile> =>
+  fetchAPI(`${API_BASE_URL}/api/stock/${symbol}/profile`);
 
 // 재무 요약 정보 조회
-export async function getFinancialSummary(
+export const getFinancialSummary = (
   symbol: string
-): Promise<FinancialSummary> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/stock/${symbol}/financial-summary`
-  );
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(
-      errorData.detail || '재무 요약 정보를 가져오지 못했습니다.'
-    );
-  }
-  return response.json();
-}
+): Promise<FinancialSummary> =>
+  fetchAPI(`${API_BASE_URL}/api/stock/${symbol}/financial-summary`);
+
 
 // 투자 지표 조회
-export async function getInvestmentMetrics(
+export const getInvestmentMetrics = (
   symbol: string
-): Promise<InvestmentMetrics> {
-  const response = await fetch(`${API_BASE_URL}/api/stock/${symbol}/metrics`);
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(
-      errorData.detail || '투자 지표 정보를 가져오지 못했습니다.'
-    );
-  }
-  return response.json();
-}
+): Promise<InvestmentMetrics> =>
+  fetchAPI(`${API_BASE_URL}/api/stock/${symbol}/metrics`);
 
 // 시장 데이터 조회
-export async function getMarketData(symbol: string): Promise<MarketData> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/stock/${symbol}/market-data`
-  );
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || '시장 데이터를 가져오지 못했습니다.');
-  }
-  return response.json();
-}
+export const getMarketData = (symbol: string): Promise<MarketData> =>
+  fetchAPI(`${API_BASE_URL}/api/stock/${symbol}/market-data`);
 
 // 분석가 추천 정보 조회
-export async function getAnalystRecommendations(
+export const getAnalystRecommendations = (
   symbol: string
-): Promise<AnalystRecommendations> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/stock/${symbol}/recommendations`
-  );
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(
-      errorData.detail || '분석가 추천 정보를 가져오지 못했습니다.'
-    );
-  }
-  return response.json();
-}
+): Promise<AnalystRecommendations> =>
+  fetchAPI(`${API_BASE_URL}/api/stock/${symbol}/recommendations`);
 
 // 임원 정보 조회
-export async function getStockOfficers(
+export const getStockOfficers = (
   symbol: string
-): Promise<{ officers: Officer[] }> {
-  const response = await fetch(`${API_BASE_URL}/api/stock/${symbol}/officers`);
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || '임원 정보를 가져오지 못했습니다.');
-  }
-  return response.json();
-}
+): Promise<{ officers: Officer[] }> =>
+  fetchAPI(`${API_BASE_URL}/api/stock/${symbol}/officers`);
 
 // 재무제표 조회
-export async function getFinancialStatement(
+export const getFinancialStatement = (
   symbol: string,
   statementType: 'income' | 'balance' | 'cashflow'
-): Promise<FinancialStatementData> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/stock/${symbol}/financials/${statementType}`
-  );
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || '재무제표를 가져오지 못했습니다.');
-  }
-  return response.json();
-}
+): Promise<FinancialStatementData> =>
+  fetchAPI(`${API_BASE_URL}/api/stock/${symbol}/financials/${statementType}`);
 
 // 주가 히스토리 조회
-export async function getStockHistory(
+export const getStockHistory = (
   symbol: string,
   startDate: string,
   endDate: string
-): Promise<StockHistoryApiResponse> {
-  const response = await fetch(
+): Promise<StockHistoryApiResponse> =>
+  fetchAPI(
     `${API_BASE_URL}/api/stock/${symbol}/history?start_date=${startDate}&end_date=${endDate}`
   );
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(
-      errorData.detail || '주가 히스토리 데이터를 가져오지 못했습니다.'
-    );
-  }
-  return response.json();
-}
 
 // 야후 RSS 뉴스 조회
-export async function fetchStockNews(
+export const fetchStockNews = async (
   symbol: string,
-  limit: number = 10
-): Promise<StockNews[]> {
-  const response = await fetch(
+  limit = 10
+): Promise<StockNews[]> => {
+  const result = await fetchAPI<{ news: StockNews[] }>(
     `${API_BASE_URL}/api/stock/${symbol}/news?limit=${limit}`
   );
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || '뉴스 정보를 가져오지 못했습니다.');
-  }
-  const data = await response.json();
-  return data.news;
-}
+  return result.news;
+};
 
 // 텍스트 번역
-export async function getTranslation(text: string): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/api/util/translate`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ text }),
-  });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || '번역에 실패했습니다.');
-  }
-  const data: TranslationResponse = await response.json();
-  return data.translated_text;
-}
+export const getTranslation = async (text: string): Promise<string> => {
+  const result = await fetchAPI<TranslationResponse>(
+    `${API_BASE_URL}/api/util/translate`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    }
+  );
+  return result.translated_text;
+};
 
 // AI에게 질문
-export async function askAi(
+export const askAi = (
   symbol: string,
   question: string,
-  financialData: FinancialStatementData | null, 
+  financialData: FinancialStatementData | null,
   historyData: StockHistoryData[] | null,
-  newsData: StockNews[] | null // 타입 명확히
-): Promise<{ response: string }> {
-  const response = await fetch(`${API_BASE_URL}/api/ai/chat`, {
+  newsData: StockNews[] | null
+): Promise<{ response: string }> => {
+  return fetchAPI(`${API_BASE_URL}/api/ai/chat`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       symbol,
       question,
-      // ✅ financialData와 historyData를 JSON 문자열로 변환하여 전달
       financialData: financialData
         ? JSON.stringify(financialData)
         : '데이터 없음',
       historyData: historyData ? JSON.stringify(historyData) : '데이터 없음',
-      newsData: newsData?.map((n: StockNews) => ({
+      newsData: newsData?.map((n) => ({
         title: n.title,
         summary: n.summary,
         url: n.url,
@@ -199,10 +157,4 @@ export async function askAi(
       })),
     }),
   });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || 'AI 응답을 가져오지 못했습니다.');
-  }
-  return response.json();
-}
+};
