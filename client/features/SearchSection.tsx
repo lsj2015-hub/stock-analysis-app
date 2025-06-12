@@ -1,28 +1,19 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import {
-  getStockProfile,
-  getFinancialSummary,
-  getInvestmentMetrics,
-  getMarketData,
-  getAnalystRecommendations,
-  getStockOfficers,
-} from '@/lib/api';
+import { getStockOverview } from '@/lib/api'; // ✅ getStockOverview만 사용
+import { StockOverviewData } from '@/types/stock'; // ✅ 통합 타입 사용
 import { ProfileDisplay } from './displays/ProfileDisplay';
 import { SummaryDisplay } from './displays/SummaryDisplay';
 import { MetricsDisplay } from './displays/MetricsDisplay';
 import { MarketDataDisplay } from './displays/MarketDataDisplay';
 import { RecommendationsDisplay } from './displays/RecommendationsDisplay';
 import { OfficersDisplay } from './displays/OfficersDisplay';
-import { ProfileSkeleton } from '../components/skeletons/ProfileSkeleton';
-import { GridSkeleton } from '../components/skeletons/GridSkeleton';
-import { OfficersSkeleton } from '../components/skeletons/OfficersSkeleton';
 
 type ActiveSection =
   | 'profile'
@@ -54,93 +45,55 @@ export default function SearchSection({
   const [activeSection, setActiveSection] = useState<ActiveSection | null>(
     null
   );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any>(null);
+  const [overviewData, setOverviewData] = useState<StockOverviewData | null>(
+    null
+  );
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = useCallback(
-    async (section: ActiveSection) => {
-      if (activeSection === section && !loading) {
-        setActiveSection(null);
-        setData(null);
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-      setData(null);
-      setActiveSection(section);
-
-      try {
-        const fetcherMap: Record<
-          ActiveSection,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (symbol: string) => Promise<any>
-        > = {
-          profile: getStockProfile,
-          summary: getFinancialSummary,
-          metrics: getInvestmentMetrics,
-          market: getMarketData,
-          recommendations: getAnalystRecommendations,
-          officers: getStockOfficers,
-        };
-        const result = await fetcherMap[section](symbol);
-
-        if (
-          result &&
-          (Array.isArray(result)
-            ? result.length > 0
-            : Object.keys(result).length > 0)
-        ) {
-          setData(result);
-        } else {
-          setError(
-            `'${symbol.toUpperCase()}'에 대한 ${
-              SECTION_NAMES[section]
-            } 정보를 찾을 수 없습니다.`
-          );
-          setActiveSection(null);
-        }
-      } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : '알 수 없는 오류가 발생했습니다.';
-        setError(message);
-        setActiveSection(null);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [symbol, activeSection, loading]
-  );
-
+  // 부모의 symbol이 변경되면 로컬 상태 초기화
   useEffect(() => {
     setLocalSymbol(symbol);
+    setOverviewData(null);
     setActiveSection(null);
-    setData(null);
     setError(null);
   }, [symbol]);
 
-  const handleSearch = () => {
-    if (localSymbol.trim() === '') {
+  // '조회' 버튼 클릭 시 실행되는 통합 데이터 조회 함수
+  const handleSearch = async () => {
+    const trimmedSymbol = localSymbol.trim();
+    if (trimmedSymbol === '') {
       setError('종목 코드를 입력해주세요.');
       return;
     }
-    setSymbol(localSymbol);
+
+    // 부모의 symbol 상태 업데이트
+    setSymbol(trimmedSymbol);
+
+    setLoading(true);
+    setError(null);
+    setOverviewData(null);
+    setActiveSection(null);
+
+    try {
+      const result = await getStockOverview(trimmedSymbol);
+      setOverviewData(result);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 상세 정보 버튼 클릭 시 섹션 표시/숨김 토글
+  const toggleSection = (section: ActiveSection) => {
+    setActiveSection((prev) => (prev === section ? null : section));
   };
 
   const renderContent = () => {
     if (loading) {
-      const skeletonMap: Record<ActiveSection, React.ReactNode> = {
-        profile: <ProfileSkeleton />,
-        summary: <GridSkeleton itemCount={8} />,
-        metrics: <GridSkeleton itemCount={6} />,
-        market: <GridSkeleton itemCount={9} />,
-        recommendations: <GridSkeleton itemCount={5} />,
-        officers: <OfficersSkeleton />,
-      };
       return (
         <Card className="mt-2 bg-gray-50">
           <CardHeader>
@@ -148,7 +101,9 @@ export default function SearchSection({
               <Skeleton className="h-6 w-40" />
             </CardTitle>
           </CardHeader>
-          {activeSection && skeletonMap[activeSection]}
+          <CardContent>
+            <Skeleton className="h-40 w-full" />
+          </CardContent>
         </Card>
       );
     }
@@ -160,14 +115,16 @@ export default function SearchSection({
         </Alert>
       );
     }
-    if (data && activeSection) {
+    if (overviewData && activeSection) {
       const displayMap: Record<ActiveSection, React.ReactNode> = {
-        profile: <ProfileDisplay data={data} />,
-        summary: <SummaryDisplay data={data} />,
-        metrics: <MetricsDisplay data={data} />,
-        market: <MarketDataDisplay data={data} />,
-        recommendations: <RecommendationsDisplay data={data} />,
-        officers: <OfficersDisplay data={data.officers} />,
+        profile: <ProfileDisplay data={overviewData.profile} />,
+        summary: <SummaryDisplay data={overviewData.summary} />,
+        metrics: <MetricsDisplay data={overviewData.metrics} />,
+        market: <MarketDataDisplay data={overviewData.marketData} />,
+        recommendations: (
+          <RecommendationsDisplay data={overviewData.recommendations} />
+        ),
+        officers: <OfficersDisplay data={overviewData.officers} />,
       };
       return (
         <Card className="mt-2 bg-gray-50">
@@ -199,15 +156,16 @@ export default function SearchSection({
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           />
           <Button onClick={handleSearch} className="w-full sm:w-auto">
-            {symbol.toUpperCase()} 조회
+            {localSymbol ? `${localSymbol} 조회` : '조회'}
           </Button>
         </div>
         <div className="px-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
           {(Object.keys(SECTION_NAMES) as ActiveSection[]).map((key) => (
             <Button
               key={key}
-              onClick={() => fetchData(key)}
+              onClick={() => toggleSection(key)}
               variant={activeSection === key ? 'default' : 'outline'}
+              disabled={!overviewData || loading}
             >
               {SECTION_NAMES[key]}
             </Button>

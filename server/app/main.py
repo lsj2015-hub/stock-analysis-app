@@ -13,7 +13,7 @@ from .schemas import (
     TranslationRequest, TranslationResponse, OfficersResponse,
     FinancialStatementResponse, PriceHistoryResponse, NewsResponse,
     AIChatRequest, AIChatResponse, StockProfile, FinancialSummary, 
-    InvestmentMetrics, MarketData, AnalystRecommendations
+    InvestmentMetrics, MarketData, AnalystRecommendations, StockOverviewResponse
 )
 from .services.yahoo_finance import YahooFinanceService
 from .services.news import NewsService
@@ -125,6 +125,49 @@ async def get_yfinance_info(
 @app.get("/", tags=["Root"])
 def read_root():
     return {"message": "Stock App API v2.0.0"}
+
+# --- ✅ 통합 정보 조회 엔드포인트 ---
+@app.get("/api/stock/{symbol}/overview", response_model=StockOverviewResponse, tags=["Stock Info"])
+async def get_stock_overview(
+    info: dict = Depends(get_yfinance_info),
+    ts: TranslationService = Depends(get_translation_service),
+    rate: float = Depends(get_exchange_rate)
+):
+    """
+    한 번의 요청으로 기업 프로필, 재무 요약, 지표 등 모든 주요 정보를 조회합니다.
+    """
+    # 1. get_yfinance_info 의존성 주입을 통해 'info' 객체를 한 번만 가져옵니다.
+
+    # 2. 회사 프로필 (번역 포함)
+    summary_kr = await run_in_threadpool(ts.translate_to_korean, info.get('longBusinessSummary', ''))
+    profile_data = formatting.format_stock_profile(info, summary_kr)
+
+    # 3. 각 정보 포맷팅
+    summary_data = formatting.format_financial_summary(info, rate)
+    metrics_data = formatting.format_investment_metrics(info)
+    market_data = formatting.format_market_data(info, rate)
+    recommendations_data = formatting.format_analyst_recommendations(info)
+
+    # 4. 임원 정보 포맷팅 (info 객체 재사용으로 최적화)
+    officers_raw = info.get("companyOfficers", [])
+    formatted_officers = []
+    if officers_raw:
+        # 급여 기준으로 상위 5명 정렬
+        top_officers = sorted(officers_raw, key=lambda x: x.get('totalPay', 0), reverse=True)[:5]
+        formatted_officers = [
+            {"name": o.get("name", ""), "title": o.get("title", ""), "totalPayUSD": formatting.format_currency(o.get("totalPay"), rate)}
+            for o in top_officers
+        ]
+
+    # 5. 최종 응답 객체 조립
+    return {
+        "profile": profile_data,
+        "summary": summary_data,
+        "metrics": metrics_data,
+        "marketData": market_data,
+        "recommendations": recommendations_data,
+        "officers": formatted_officers
+    }
 
 # ✨ 회사 기본 정보 조회
 @app.get("/api/stock/{symbol}/profile", response_model=StockProfile, tags=["Stock Info"])

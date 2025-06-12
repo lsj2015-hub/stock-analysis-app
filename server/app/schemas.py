@@ -77,6 +77,14 @@ class AnalystRecommendations(BaseModel):
     target_high_price: str = Field(..., alias="targetHighPrice")
     target_low_price: str = Field(..., alias="targetLowPrice")
 
+class StockOverviewResponse(BaseModel):
+    profile: StockProfile
+    summary: FinancialSummary
+    metrics: InvestmentMetrics
+    market_data: MarketData = Field(..., alias="marketData")
+    recommendations: AnalystRecommendations
+    officers: List[Officer]
+
 class FinancialStatementData(BaseModel):
     item: str
     # 동적 키 (연도)를 허용하기 위해 추가 설정

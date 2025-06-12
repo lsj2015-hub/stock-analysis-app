@@ -46,17 +46,26 @@ export default function HistorySection({ symbol, setStockHistoryData }: HistoryS
   const sevenDaysAgo = new Date(today);
   sevenDaysAgo.setDate(today.getDate() - 7);
 
-  const [startDate, setStartDate] = useState<string>(
-    getFormattedDate(sevenDaysAgo)
-  );
-  const [endDate, setEndDate] = useState<string>(getFormattedDate(today));
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+
   const [actualEndDate, setActualEndDate] = useState<string | null>(null);
-  const [historyData, setHistoryData] = useState<
-    StockHistoryData[] | null
-  >(null);
+  const [historyData, setHistoryData] = useState<StockHistoryData[] | null>(
+    null
+  );
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [showChartAndTable, setShowChartAndTable] = useState<boolean>(false);
+
+  // ✅ useEffect를 사용해 클라이언트에서만 초기 날짜를 설정
+  useEffect(() => {
+    const today = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 7);
+
+    setStartDate(getFormattedDate(sevenDaysAgo));
+    setEndDate(getFormattedDate(today));
+  }, []); // 빈 배열로 마운트 시 한 번만 실행
 
   const formatChartData = useCallback((data: StockHistoryData[] | null) => {
     if (!data || data.length === 0) return [];
@@ -99,8 +108,7 @@ export default function HistorySection({ symbol, setStockHistoryData }: HistoryS
         setShowChartAndTable(true);
       } else {
         setError(
-          apiResponse?.message ||
-            `${symbol.toUpperCase()}에 대한 ${startDate}부터 ${endDate}까지의 주가 데이터를 찾을 수 없습니다.`
+          `${symbol.toUpperCase()}에 대한 ${startDate}부터 ${endDate}까지의 주가 데이터를 찾을 수 없습니다.`
         );
         setHistoryData(null);
         setStockHistoryData(null);

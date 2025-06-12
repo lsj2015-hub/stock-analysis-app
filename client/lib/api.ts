@@ -10,6 +10,7 @@ import {
   FinancialStatementData,
   StockHistoryApiResponse,
   StockHistoryData,
+  StockOverviewData,
 } from '@/types/stock';
 import { StockNews } from '../types/common';
 
@@ -55,6 +56,10 @@ const fetchAPI = async <T>(
     throw new Error('서버와 통신할 수 없습니다. 네트워크 연결을 확인해주세요.');
   }
 };
+
+// 통합 정보 조회
+export const getStockOverview = (symbol: string): Promise<StockOverviewData> =>
+  fetchAPI(`${API_BASE_URL}/api/stock/${symbol}/overview`);
 
 // 주식 프로필 정보 조회
 export const getStockProfile = (symbol: string): Promise<StockProfile> =>

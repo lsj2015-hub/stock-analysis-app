@@ -1,3 +1,13 @@
+// 통합 데이터 타입
+export interface StockOverviewData {
+  profile: StockProfile;
+  summary: FinancialSummary;
+  metrics: InvestmentMetrics;
+  marketData: MarketData;
+  recommendations: AnalystRecommendations;
+  officers: Officer[];
+}
+
 // (1) 기업 기본 정보 (프로필)
 export interface StockProfile {
   symbol: string;
@@ -89,4 +99,3 @@ export interface StockHistoryApiResponse {
   endDate: string;
   data: StockHistoryData[];
 }
-

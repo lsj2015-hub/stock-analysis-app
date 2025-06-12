@@ -9,7 +9,7 @@ import FinancialSection from '@/features/FinancialSection';
 import HistorySection from '@/features/HistorySection';
 import AiQuestionSection from '@/features/AiQuestionSection';
 import NewsSection from '@/features/NewsSection';
-import ScrollToTopButton from '@/components/shared/ScrollToTopButton';
+import ScrollToTopButton from '@/components/shared/ScrollToTopButton'; // ✅ 플로팅 버튼 임포트
 
 export default function Home() {
   const [symbol, setSymbol] = useState<string>('AAPL');
@@ -22,16 +22,27 @@ export default function Home() {
   >(null);
   const [newsData, setNewsData] = useState<StockNews[] | null>(null);
 
-  // ✅ 페이지가 처음 로드될 때 스크롤을 맨 위로 이동시키는 코드
+  // ✅ 이 부분을 새로운 코드로 교체합니다.
   useEffect(() => {
-    window.scrollTo(0, 0);
+    // 브라우저의 자동 스크롤 복원 기능을 끄는 것을 유지합니다.
+    if (window.history.scrollRestoration) {
+      window.history.scrollRestoration = 'manual';
+    }
+
+    // setTimeout을 사용해 스크롤 명령을 다음 렌더링 사이클로 넘깁니다.
+    // 이렇게 하면 브라우저의 자체 스크롤 복원 시도가 끝난 후 실행됩니다.
+    const timer = setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }, 0);
+
+    // 컴포넌트가 언마운트될 때 타이머를 정리합니다.
+    return () => clearTimeout(timer);
   }, []);
 
   const handleSymbolChange = (newSymbol: string) => {
     const upperCaseSymbol = newSymbol.trim().toUpperCase();
     if (upperCaseSymbol) {
       setSymbol(upperCaseSymbol);
-      // 종목 변경 시 AI 컨텍스트 데이터 초기화
       setFinancialData(null);
       setStockHistoryData(null);
       setNewsData(null);
@@ -60,6 +71,7 @@ export default function Home() {
         />
       </div>
 
+      {/* ✅ 플로팅 버튼 컴포넌트 추가 */}
       <ScrollToTopButton />
     </main>
   );
