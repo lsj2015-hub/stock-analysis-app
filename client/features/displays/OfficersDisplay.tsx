@@ -8,7 +8,7 @@ export const OfficersDisplay = ({ data }: { data: Officer[] }) => (
         {data.map((officer, index) => (
           <li key={index}>
             <strong>{officer.name}</strong> - {officer.title} (총 보수:{' '}
-            {officer.totalPayUSD})
+            {officer.totalPay}){' '}
           </li>
         ))}
       </ul>

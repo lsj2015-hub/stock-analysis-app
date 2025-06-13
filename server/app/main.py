@@ -13,7 +13,7 @@ from .schemas import (
     TranslationRequest, TranslationResponse, OfficersResponse,
     FinancialStatementResponse, PriceHistoryResponse, NewsResponse,
     AIChatRequest, AIChatResponse, StockProfile, FinancialSummary, 
-    InvestmentMetrics, MarketData, AnalystRecommendations, StockOverviewResponse
+    InvestmentMetrics, MarketData, AnalystRecommendations, StockOverviewResponse, Officer
 )
 from .services.yahoo_finance import YahooFinanceService
 from .services.news import NewsService
@@ -124,11 +124,12 @@ async def get_yfinance_info(
 # --- ‼️ API 엔드포인트 코드는 변경할 필요 없습니다. ---
 @app.get("/", tags=["Root"])
 def read_root():
-    return {"message": "Stock App API v2.0.0"}
+    return {"message": "Stock App API v1.0.0"}
 
 # --- ✅ 통합 정보 조회 엔드포인트 ---
 @app.get("/api/stock/{symbol}/overview", response_model=StockOverviewResponse, tags=["Stock Info"])
 async def get_stock_overview(
+    symbol: str,
     info: dict = Depends(get_yfinance_info),
     ts: TranslationService = Depends(get_translation_service),
     rate: float = Depends(get_exchange_rate)
@@ -143,9 +144,9 @@ async def get_stock_overview(
     profile_data = formatting.format_stock_profile(info, summary_kr)
 
     # 3. 각 정보 포맷팅
-    summary_data = formatting.format_financial_summary(info, rate)
+    summary_data = formatting.format_financial_summary(info, symbol, rate)
     metrics_data = formatting.format_investment_metrics(info)
-    market_data = formatting.format_market_data(info, rate)
+    market_data = formatting.format_market_data(info, symbol, rate)
     recommendations_data = formatting.format_analyst_recommendations(info)
 
     # 4. 임원 정보 포맷팅 (info 객체 재사용으로 최적화)
@@ -155,7 +156,11 @@ async def get_stock_overview(
         # 급여 기준으로 상위 5명 정렬
         top_officers = sorted(officers_raw, key=lambda x: x.get('totalPay', 0), reverse=True)[:5]
         formatted_officers = [
-            {"name": o.get("name", ""), "title": o.get("title", ""), "totalPayUSD": formatting.format_currency(o.get("totalPay"), rate)}
+            {
+                "name": o.get("name", ""),
+                "title": o.get("title", ""), 
+                "totalPay": formatting.format_currency(o.get("totalPay"), symbol, rate)
+            }
             for o in top_officers
         ]
 
@@ -182,10 +187,11 @@ async def get_stock_profile(
 # ✨ 재무 요약 정보 조회
 @app.get("/api/stock/{symbol}/financial-summary", response_model=FinancialSummary, tags=["Stock Info"])
 async def get_financial_summary(
+    symbol: str,
     info: dict = Depends(get_yfinance_info),
     rate: float = Depends(get_exchange_rate)
 ):
-    return formatting.format_financial_summary(info, rate)
+    return formatting.format_financial_summary(info, symbol, rate)
 
 # ✨ 투자 지표 조회 
 @app.get("/api/stock/{symbol}/metrics", response_model=InvestmentMetrics, tags=["Stock Info"])
@@ -195,10 +201,11 @@ async def get_investment_metrics(info: dict = Depends(get_yfinance_info)):
 # ✨ 주가/시장 정보 조회
 @app.get("/api/stock/{symbol}/market-data", response_model=MarketData, tags=["Stock Info"])
 async def get_market_data(
+    symbol: str,
     info: dict = Depends(get_yfinance_info),
     rate: float = Depends(get_exchange_rate)
 ):
-    return formatting.format_market_data(info, rate)
+    return formatting.format_market_data(info, symbol, rate)
 
 # ✨ 분석가 의견 조회
 @app.get("/api/stock/{symbol}/recommendations", response_model=AnalystRecommendations, tags=["Stock Info"])
@@ -223,7 +230,11 @@ async def get_stock_officers(
     top_officers = sorted(officers_raw, key=lambda x: x.get('totalPay', 0), reverse=True)[:5]
     
     formatted_officers = [
-        {"name": o.get("name", ""), "title": o.get("title", ""), "totalPayUSD": formatting.format_currency(o.get("totalPay"), rate)}
+        Officer(
+            name=o.get("name", ""),
+            title=o.get("title", ""),
+            totalPay=formatting.format_currency(o.get("totalPay"), symbol, rate)
+        )
         for o in top_officers
     ]
     return {"officers": formatted_officers}
@@ -247,7 +258,7 @@ async def get_financial_statement(
     if df_raw is None or df_raw.empty:
         raise HTTPException(status_code=404, detail=f"'{symbol.upper()}'에 대한 {statement_type} 데이터를 찾을 수 없습니다.")
         
-    return formatting.format_financial_statement_response(df_raw, statement_type)
+    return formatting.format_financial_statement_response(df_raw, statement_type, symbol)
 
 # ✨ 기간별 주가 히스토리 조회
 @app.get("/api/stock/{symbol}/history", response_model=PriceHistoryResponse, tags=["Stock Details"])

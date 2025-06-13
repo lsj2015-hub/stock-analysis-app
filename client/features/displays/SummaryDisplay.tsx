@@ -19,6 +19,9 @@ export const SummaryDisplay = ({ data }: { data: FinancialSummary }) => (
       <strong>주당순이익(EPS):</strong> {data.trailingEps}
     </p>
     <p>
+      <strong>배당락일:</strong> {data.exDividendDate || '정보 없음'}
+    </p>
+    <p>
       <strong>총 현금:</strong> {data.totalCash}
     </p>
     <p>

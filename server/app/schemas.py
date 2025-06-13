@@ -35,7 +35,7 @@ class StockProfile(BaseModel):
 class Officer(BaseModel):
     name: str
     title: str
-    total_pay_usd: str = Field(..., alias="totalPayUSD")
+    totalPay: str
 
 class OfficersResponse(BaseModel):
     officers: List[Officer]
@@ -49,6 +49,7 @@ class FinancialSummary(BaseModel):
     total_cash: str = Field(..., alias="totalCash")
     total_debt: str = Field(..., alias="totalDebt")
     debt_to_equity: str = Field(..., alias="debtToEquity")
+    ex_dividend_date: Optional[str] = Field(None, alias="exDividendDate")
 
 class InvestmentMetrics(BaseModel):
     trailing_pe: str = Field(..., alias="trailingPE")

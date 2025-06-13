@@ -155,8 +155,12 @@ export default function SearchSection({
             onChange={(e) => setLocalSymbol(e.target.value.toUpperCase())}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           />
-          <Button onClick={handleSearch} className="w-full sm:w-auto">
-            {localSymbol ? `${localSymbol} 조회` : '조회'}
+          <Button
+            onClick={handleSearch}
+            className="w-full sm:w-auto bg-black text-white hover:bg-neutral-800"
+            disabled={loading}
+          >
+            {loading ? '조회 중...' : '조회'}
           </Button>
         </div>
         <div className="px-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">

@@ -32,6 +32,7 @@ export interface FinancialSummary {
   totalCash: string;
   totalDebt: string;
   debtToEquity: string;
+  exDividendDate?: string | null;
 }
 
 // (3) 투자 지표
@@ -71,7 +72,7 @@ export interface AnalystRecommendations {
 export interface Officer {
   name: string;
   title: string;
-  totalPayUSD: string;
+  totalPay: string;
 }
 
 // 재무제표 데이터
