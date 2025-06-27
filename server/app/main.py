@@ -13,9 +13,11 @@ from .schemas import (
     TranslationRequest, TranslationResponse, OfficersResponse,
     FinancialStatementResponse, PriceHistoryResponse, NewsResponse,
     AIChatRequest, AIChatResponse, StockProfile, FinancialSummary, 
-    InvestmentMetrics, MarketData, AnalystRecommendations, StockOverviewResponse, Officer
+    InvestmentMetrics, MarketData, AnalystRecommendations, StockOverviewResponse, Officer,
+    SectorTickerResponse, SectorAnalysisRequest, SectorAnalysisResponse
 )
 from .services.yahoo_finance import YahooFinanceService
+from .services.krx_service import PyKRXService
 from .services.news import NewsService
 from .services.translation import TranslationService
 from .services.llm import LLMService
@@ -38,6 +40,7 @@ app = FastAPI(
 )
 
 yfs_service = YahooFinanceService()
+krx_service = PyKRXService()
 news_service = NewsService()
 translation_service = TranslationService()
 llm_service = LLMService(settings) # 설정 객체를 주입하여 생성
@@ -85,6 +88,9 @@ def get_settings() -> Settings:
 
 def get_yahoo_finance_service() -> YahooFinanceService:
     return yfs_service
+
+def get_krx_service() -> PyKRXService:
+    return krx_service
 
 def get_news_service() -> NewsService:
     return news_service
@@ -325,3 +331,49 @@ async def chat_with_ai(
             status_code=e.status_code or 503, 
             detail=f"AI 서비스에 문제가 발생했습니다: {e.message}"
         )
+
+# --- 🎯 섹터 분석 API 엔드포인트 ---    
+@app.get("/api/sectors/groups", tags=["Sector Analysis"])
+def get_sector_groups(krx: PyKRXService = Depends(get_krx_service)):
+    """KOSPI, KOSDAQ 섹터 그룹 데이터를 제공합니다."""
+    return krx.get_sector_groups()
+
+@app.get("/api/sectors/tickers", response_model=SectorTickerResponse, tags=["Sector Analysis"])
+async def get_tickers_by_group(
+    market: str, 
+    group: str,
+    krx: PyKRXService = Depends(get_krx_service)
+):
+    """선택된 시장과 그룹에 속한 모든 섹터 티커와 이름을 반환합니다."""
+    try:
+        tickers_with_names = await run_in_threadpool(krx.get_tickers_by_group, market, group)
+        formatted_tickers = [{"ticker": t, "name": n} for t, n in tickers_with_names]
+        return {"tickers": formatted_tickers}
+    except Exception as e:
+        logger.error(f"섹터 티커 조회 오류: market={market}, group={group}, error={e}", exc_info=True)
+        raise HTTPException(status_code=404, detail="섹터 목록을 가져오는 데 실패했습니다.")
+
+@app.post("/api/sectors/analysis", response_model=SectorAnalysisResponse, tags=["Sector Analysis"])
+async def analyze_sectors(
+    request: SectorAnalysisRequest,
+    krx: PyKRXService = Depends(get_krx_service)
+):
+    """요청된 기간과 티커 목록에 대해 누적 수익률을 분석하여 반환합니다."""
+    try:
+        analysis_result = await run_in_threadpool(
+            krx.analyze_sector_performance,
+            request.start_date,
+            request.end_date,
+            request.tickers
+        )
+        if not analysis_result:
+            # 서비스 단에서 빈 리스트를 반환한 경우 (분석할 데이터 없음)
+            raise HTTPException(status_code=404, detail="분석할 유효한 데이터를 찾을 수 없습니다.")
+
+        return {"data": analysis_result}
+    except Exception as e:
+        logger.error(f"섹터 분석 API 오류: request={request.dict()}, error={e}", exc_info=True)
+        # 이미 HTTPException이 아닌 경우 500으로 처리
+        if not isinstance(e, HTTPException):
+            raise HTTPException(status_code=500, detail="서버 내부에서 섹터 분석 중 오류가 발생했습니다.")
+        raise e

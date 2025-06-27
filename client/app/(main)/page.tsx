@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
 import { FinancialStatementData, StockHistoryData } from '@/types/stock';
 import { StockNews } from '@/types/common';
 
@@ -10,6 +12,7 @@ import HistorySection from '@/features/HistorySection';
 import AiQuestionSection from '@/features/AiQuestionSection';
 import NewsSection from '@/features/NewsSection';
 import ScrollToTopButton from '@/components/shared/ScrollToTopButton'; // ✅ 플로팅 버튼 임포트
+import { Button } from '@/components/ui/button';
 
 export default function Home() {
   const [symbol, setSymbol] = useState<string>('AAPL');
@@ -52,8 +55,19 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-neutral-50">
       <div className="w-full bg-gradient-to-r from-[#fbbc04] to-[#34a853] h-1" />
-      <header className="flex items-center justify-center px-8 py-6 border-b">
-        <h1 className="text-2xl font-bold tracking-tight">기업 정보 조회</h1>
+      {/* 헤더 섹션 */}
+      <header className="py-6 border-b">
+        <div className="max-w-5xl mx-auto px-8 relative flex justify-center items-center">
+          {/* 중앙 정렬된 제목 */}
+          <h1 className="text-2xl font-bold tracking-tight">기업 정보 조회</h1>
+          <div className="absolute right-0">
+            <Link href="/bench-mark">
+              <Button className="font-bold bg-gradient-to-r from-[#fbbc04] to-[#34a853] hover:bg-gradient-to-r hover:from-[#34a853] hover:to-[#fbbc04]">
+                bench-mark 분석
+              </Button>
+            </Link>
+          </div>
+        </div>
       </header>
       <div className="max-w-5xl mx-auto py-8 flex flex-col gap-6">
         <SearchSection symbol={symbol} setSymbol={handleSymbolChange} />

@@ -129,3 +129,25 @@ class AIChatRequest(BaseModel):
 
 class AIChatResponse(BaseModel):
     response: str
+
+# --- ✅ 섹터 분석 기능에 필요한 스키마 ---
+class SectorTicker(BaseModel):
+    ticker: str
+    name: str
+
+class SectorTickerResponse(BaseModel):
+    tickers: List[SectorTicker]
+
+class SectorAnalysisRequest(BaseModel):
+    start_date: str
+    end_date: str
+    tickers: List[str]
+
+class SectorAnalysisDataPoint(BaseModel):
+    date: str
+    # 동적 키 (섹터 이름)를 허용
+    class Config:
+        extra = "allow"
+
+class SectorAnalysisResponse(BaseModel):
+    data: List[SectorAnalysisDataPoint]

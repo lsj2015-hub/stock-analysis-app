@@ -1,5 +1,3 @@
-// client/lib/api.ts
-
 import {
   StockProfile,
   FinancialSummary,
@@ -12,13 +10,19 @@ import {
   StockHistoryData,
   StockOverviewData,
 } from '@/types/stock';
-import { StockNews } from '../types/common';
+import {
+  StockNews,
+  SectorGroups,
+  SectorTickerResponse,
+  SectorAnalysisRequest,
+  SectorAnalysisResponse,
+} from '../types/common';
 
 // 모든 API 요청에 대한 기본 URL
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
-  // 1. API 에러를 위한 커스텀 클래스
+// 1. API 에러를 위한 커스텀 클래스
 export class APIError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -70,7 +74,6 @@ export const getFinancialSummary = (
   symbol: string
 ): Promise<FinancialSummary> =>
   fetchAPI(`${API_BASE_URL}/api/stock/${symbol}/financial-summary`);
-
 
 // 투자 지표 조회
 export const getInvestmentMetrics = (
@@ -161,5 +164,44 @@ export const askAi = (
         source: n.source,
       })),
     }),
+  });
+};
+
+// --- ✅ 섹터 분석 API 함수들 ---
+
+/**
+ * 모든 섹터 그룹 정보를 가져옵니다.
+ */
+export const getSectorGroups = (): Promise<SectorGroups> => {
+  return fetchAPI(`${API_BASE_URL}/api/sectors/groups`);
+};
+
+/**
+ * 특정 시장과 그룹에 속한 티커 목록을 가져옵니다.
+ * @param market - 'KOSPI' 또는 'KOSDAQ'
+ * @param group - 섹터 그룹 이름
+ */
+export const getSectorTickers = (
+  market: string,
+  group: string
+): Promise<SectorTickerResponse> => {
+  return fetchAPI(
+    `${API_BASE_URL}/api/sectors/tickers?market=${market}&group=${encodeURIComponent(
+      group
+    )}`
+  );
+};
+
+/**
+ * 선택된 섹터들의 수익률을 분석합니다.
+ * @param requestData - 시작일, 종료일, 티커 목록을 포함하는 객체
+ */
+export const analyzeSectors = (
+  requestData: SectorAnalysisRequest
+): Promise<SectorAnalysisResponse> => {
+  return fetchAPI(`${API_BASE_URL}/api/sectors/analysis`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestData),
   });
 };
