@@ -14,13 +14,16 @@ from .schemas import (
     FinancialStatementResponse, PriceHistoryResponse, NewsResponse,
     AIChatRequest, AIChatResponse, StockProfile, FinancialSummary, 
     InvestmentMetrics, MarketData, AnalystRecommendations, StockOverviewResponse, Officer,
-    SectorTickerResponse, SectorAnalysisRequest, SectorAnalysisResponse
+    SectorTickerResponse, SectorAnalysisRequest, SectorAnalysisResponse, 
+    PerformanceAnalysisRequest, PerformanceAnalysisResponse
 )
 from .services.yahoo_finance import YahooFinanceService
 from .services.krx_service import PyKRXService
 from .services.news import NewsService
 from .services.translation import TranslationService
 from .services.llm import LLMService
+from .services.performance_service import PerformanceService
+
 from .core import formatting
 
 # 로거 설정 (print 대신 사용하면 더 체계적인 로깅이 가능합니다)
@@ -42,8 +45,9 @@ app = FastAPI(
 yfs_service = YahooFinanceService()
 krx_service = PyKRXService()
 news_service = NewsService()
+performance_service = PerformanceService()
 translation_service = TranslationService()
-llm_service = LLMService(settings) # 설정 객체를 주입하여 생성
+llm_service = LLMService(settings)
 
 # 환율 정보 캐시 (1시간 TTL)
 exchange_rate_cache = TTLCache(maxsize=1, ttl=settings.CACHE_TTL_SECONDS)
@@ -91,6 +95,9 @@ def get_yahoo_finance_service() -> YahooFinanceService:
 
 def get_krx_service() -> PyKRXService:
     return krx_service
+
+def get_performance_service() -> PerformanceService:
+    return performance_service
 
 def get_news_service() -> NewsService:
     return news_service
@@ -376,4 +383,31 @@ async def analyze_sectors(
         # 이미 HTTPException이 아닌 경우 500으로 처리
         if not isinstance(e, HTTPException):
             raise HTTPException(status_code=500, detail="서버 내부에서 섹터 분석 중 오류가 발생했습니다.")
+        raise e
+    
+# --- ✅ 수익율 상위/하위 종목 분석 API 엔드포인트 ---
+@app.post("/api/performance/analysis", response_model=PerformanceAnalysisResponse, tags=["Performance Analysis"])
+async def analyze_market_performance(
+    request: PerformanceAnalysisRequest,
+    ps: PerformanceService = Depends(get_performance_service)
+):
+    """
+    선택된 시장의 기간별 수익률 상/하위 N개 종목을 분석하여 반환합니다.
+    """
+    try:
+        result = await run_in_threadpool(
+            ps.get_market_performance,
+            request.market,
+            request.start_date,
+            request.end_date,
+            request.top_n
+        )
+        if not result["top_performers"] and not result["bottom_performers"]:
+             raise HTTPException(status_code=404, detail="해당 조건의 분석 데이터를 생성할 수 없습니다.")
+
+        return result
+    except Exception as e:
+        logger.error(f"성능 분석 API 오류: request={request.dict()}, error={e}", exc_info=True)
+        if not isinstance(e, HTTPException):
+            raise HTTPException(status_code=500, detail="서버 내부에서 성능 분석 중 오류가 발생했습니다.")
         raise e

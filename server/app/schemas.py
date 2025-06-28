@@ -151,3 +151,19 @@ class SectorAnalysisDataPoint(BaseModel):
 
 class SectorAnalysisResponse(BaseModel):
     data: List[SectorAnalysisDataPoint]
+
+# --- ✅ 성능 분석 기능에 필요한 스키마 ---
+class PerformanceAnalysisRequest(BaseModel):
+    market: str = Field(..., description="시장 (예: 'NASDAQ', 'KOSPI')")
+    start_date: str = Field(..., description="분석 시작일 (YYYY-MM-DD)")
+    end_date: str = Field(..., description="분석 종료일 (YYYY-MM-DD)")
+    top_n: int = Field(5, ge=1, le=20, description="상위/하위 N개 종목 수")
+
+class StockPerformance(BaseModel):
+    ticker: str
+    name: str
+    performance: float
+
+class PerformanceAnalysisResponse(BaseModel):
+    top_performers: List[StockPerformance]
+    bottom_performers: List[StockPerformance]

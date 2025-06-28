@@ -17,12 +17,11 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Calendar as CalendarIcon } from 'lucide-react';
 
-// lib/api.ts에서 API 호출 함수들을 가져옵니다.
 import { getSectorGroups, getSectorTickers, analyzeSectors } from '@/lib/api';
-// types 폴더에서 타입 정의를 가져옵니다.
+import { cn } from '@/lib/utils';
+
 import { SectorGroups, TickerInfo, ChartData } from '@/types/common';
 
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -84,6 +83,7 @@ const CustomTooltip = ({
 // --- 메인 컴포넌트 ---
 export function SectorAnalysisSection() {
   // --- 상태 관리 ---
+  const [isClient, setIsClient] = useState(false);
   const [dates, setDates] = useState<{ start?: Date; end?: Date }>({});
   const [sectorData, setSectorData] = useState<{
     groups: SectorGroups;
@@ -112,6 +112,8 @@ export function SectorAnalysisSection() {
 
   // --- 데이터 로딩 (Effects) ---
   useEffect(() => {
+    setIsClient(true);
+
     const today = new Date();
     const weekAgo = new Date();
     weekAgo.setDate(today.getDate() - 7);
@@ -190,12 +192,11 @@ export function SectorAnalysisSection() {
         end_date: format(dates.end, 'yyyyMMdd'),
         tickers: selections.tickers,
       });
-      const data = response.data;
       setChartData({
-        data: data,
+        data: response.data,
         keys:
-          data.length > 0
-            ? Object.keys(data[0]).filter((key) => key !== 'date')
+          response.data.length > 0
+            ? Object.keys(response.data[0]).filter((key) => key !== 'date')
             : [],
       });
     } catch (err: any) {
@@ -204,6 +205,23 @@ export function SectorAnalysisSection() {
       setLoading((prev) => ({ ...prev, analysis: false }));
     }
   }, [dates, selections.tickers]);
+
+  if (!isClient) {
+    return (
+      <Card className="rounded-2xl border-2 border-blue-400">
+        <CardHeader>
+          <Skeleton className="h-8 w-1/3" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-64 w-full" />
+        </CardContent>
+        <CardFooter className="flex justify-end">
+          <Skeleton className="h-10 w-24" />
+        </CardFooter>
+      </Card>
+    );
+  }
+
 
   const colors = [
     '#8884d8',
@@ -217,7 +235,7 @@ export function SectorAnalysisSection() {
   const currentGroups = Object.keys(sectorData.groups[selections.market] || {});
 
   return (
-    <Card className="w-full max-w-6xl mx-auto shadow-lg">
+    <Card className="rounded-2xl border-2 border-blue-400">
       <CardHeader>
         <CardTitle className="text-2xl font-semibold">
           섹터 수익률 비교 분석
@@ -440,7 +458,7 @@ export function SectorAnalysisSection() {
           )}
         </div>
       </CardContent>
-      <CardFooter className="flex justify-end border-t pt-6">
+      <CardFooter className="flex justify-end">
         <Button
           onClick={handleAnalyze}
           disabled={loading.analysis || selections.tickers.length === 0}

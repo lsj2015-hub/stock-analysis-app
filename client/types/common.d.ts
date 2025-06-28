@@ -41,3 +41,22 @@ export interface ChartData {
 export interface SectorAnalysisResponse {
   data: ChartData[];
 }
+
+// --- 수익율 상위/하위 종목 관련 타입 ---
+export interface StockPerformance {
+  ticker: string;
+  name: string;
+  performance: number;
+}
+
+export interface PerformanceAnalysisResponse {
+  top_performers: StockPerformance[];
+  bottom_performers: StockPerformance[];
+}
+
+export interface PerformanceAnalysisRequest {
+  market: string;
+  start_date: string;
+  end_date: string;
+  top_n: number;
+}

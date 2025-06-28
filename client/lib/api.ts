@@ -16,6 +16,8 @@ import {
   SectorTickerResponse,
   SectorAnalysisRequest,
   SectorAnalysisResponse,
+  PerformanceAnalysisRequest,
+  PerformanceAnalysisResponse,
 } from '../types/common';
 
 // 모든 API 요청에 대한 기본 URL
@@ -200,6 +202,20 @@ export const analyzeSectors = (
   requestData: SectorAnalysisRequest
 ): Promise<SectorAnalysisResponse> => {
   return fetchAPI(`${API_BASE_URL}/api/sectors/analysis`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestData),
+  });
+};
+
+/**
+ * 시장 성과 분석을 요청합니다.
+ * @param requestData - 국가, 시장, 기간, 종목 수를 포함하는 객체
+ */
+export const analyzePerformance = (
+  requestData: PerformanceAnalysisRequest
+): Promise<PerformanceAnalysisResponse> => {
+  return fetchAPI(`${API_BASE_URL}/api/performance/analysis`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(requestData),

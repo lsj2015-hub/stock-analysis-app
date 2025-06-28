@@ -59,14 +59,15 @@ class PyKRXService:
         all_constituent_stocks: Dict[str, List[str]] = {}
         unique_stock_tickers: Set[str] = set()
 
-        # 1. 각 섹터의 구성 종목 취합
+        # 1. 각 섹터의 구성 종목 취합 (✅ 수정: 찾은 기준일 사용)
         for sector_ticker in tickers:
             try:
                 sector_name = stock.get_index_ticker_name(sector_ticker)
+                # latest_business_day를 사용합니다.
                 constituent_stocks = stock.get_index_portfolio_deposit_file(sector_ticker, latest_business_day)
                 all_constituent_stocks[sector_name] = constituent_stocks
                 unique_stock_tickers.update(constituent_stocks)
-                time.sleep(0.1)
+                time.sleep(0.1) # API 과부하 방지
             except Exception as e:
                 logger.warning(f"구성 종목 조회 실패 ({sector_ticker}): {e}")
                 continue
@@ -95,7 +96,6 @@ class PyKRXService:
             logger.error("기준 거래일(삼성전자) 조회에 실패하여 분석을 진행할 수 없습니다.")
             return []
 
-
         for sector_name, stock_list in all_constituent_stocks.items():
             sector_prices = [all_stock_data[ticker] for ticker in stock_list if ticker in all_stock_data and not all_stock_data[ticker].empty]
             
@@ -116,7 +116,6 @@ class PyKRXService:
         sector_indexed_returns_df.index = sector_indexed_returns_df.index.strftime('%Y-%m-%d')
         result_json = sector_indexed_returns_df.where(pd.notnull(sector_indexed_returns_df), None).to_dict(orient='index')
         
-        # 날짜를 키로, 섹터 데이터를 값으로 갖는 리스트 형태로 변환
         formatted_result = [{"date": date, **data} for date, data in result_json.items()]
         
         return formatted_result
