@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import ScrollToTopButton from '@/components/shared/ScrollToTopButton';
 import { SectorAnalysisSection } from '@/features/SectorAnalysisSection';
 import { PerformanceAnalysisSection } from '@/features/PerformanceAnalysisSection';
+import { CompareStocksSection } from '../../features/CompareStocksSection';
 
 const page = () => {
   return (
@@ -27,6 +28,7 @@ const page = () => {
       <div className="max-w-5xl mx-auto py-8 flex flex-col gap-6">
         <SectorAnalysisSection />
         <PerformanceAnalysisSection />
+        <CompareStocksSection />
       </div>
 
       {/* ✅ 플로팅 버튼 컴포넌트 추가 */}

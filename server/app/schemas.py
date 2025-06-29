@@ -1,6 +1,6 @@
 # app/schemas.py
 from pydantic import BaseModel, Field, HttpUrl
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 class TranslationRequest(BaseModel):
     text: str
@@ -167,3 +167,23 @@ class StockPerformance(BaseModel):
 class PerformanceAnalysisResponse(BaseModel):
     top_performers: List[StockPerformance]
     bottom_performers: List[StockPerformance]
+
+# --- ✅ 주가 비교 분석 기능에 필요한 스키마 ---
+class StockComparisonRequest(BaseModel):
+    tickers: List[str] = Field(..., description="비교할 주식 티커 리스트")
+    start_date: str = Field(..., description="분석 시작일 (YYYY-MM-DD)")
+    end_date: str = Field(..., description="분석 종료일 (YYYY-MM-DD)")
+
+class StockComparisonDataPoint(BaseModel):
+    date: str
+    # 동적 키 (티커 이름)를 허용
+    class Config:
+        extra = "allow"
+
+class StockComparisonSeries(BaseModel):
+    dataKey: str
+    name: str
+    
+class StockComparisonResponse(BaseModel):
+    data: List[StockComparisonDataPoint]
+    series: List[StockComparisonSeries]

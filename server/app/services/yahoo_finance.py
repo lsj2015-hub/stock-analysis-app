@@ -79,3 +79,37 @@ class YahooFinanceService:
         
         logger.warning(f"yfinance: '{symbol}'의 임원 정보를 가져오지 못했습니다 (get_stock_info 실패).")
         return None
+    
+    def get_comparison_data(self, tickers: list, start: str, end: str) -> pd.DataFrame | None:
+        """
+        여러 티커의 종가 데이터를 다운로드하고 첫날 기준으로 정규화합니다.
+        """
+        try:
+            data = yf.download(tickers, start=start, end=end, progress=False, auto_adjust=True)
+            if data.empty or 'Close' not in data:
+                logger.warning(f"yfinance: 티커 {tickers}에 대한 종가 데이터를 가져오지 못했습니다.")
+                return None
+
+            close_prices = data['Close']
+            
+            # 단일 티커일 경우 Series로 반환되므로 DataFrame으로 변환
+            if isinstance(close_prices, pd.Series):
+                close_prices = close_prices.to_frame(name=tickers[0])
+
+            # 모든 데이터가 NaN인 열(티커) 제거
+            close_prices.dropna(axis=1, how='all', inplace=True)
+            if close_prices.empty:
+                 logger.warning(f"yfinance: {tickers}에 대한 유효한 종가 데이터가 없습니다.")
+                 return None
+
+            # 각 종목의 유효한 첫 거래일 가격으로 정규화
+            first_valid_prices = close_prices.bfill().iloc[0]
+            normalized_prices = (close_prices / first_valid_prices) * 100
+            
+            logger.info(f"yfinance: {tickers} 비교 데이터 정규화 완료")
+            return normalized_prices
+
+        except Exception as e:
+            logger.error(f"yfinance: 비교 데이터 처리 중 예외 발생: {e}", exc_info=True)
+            return None
+

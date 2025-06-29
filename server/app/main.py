@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 from cachetools import TTLCache
+import pandas as pd
 import openai
 import httpx
 import logging
@@ -15,7 +16,8 @@ from .schemas import (
     AIChatRequest, AIChatResponse, StockProfile, FinancialSummary, 
     InvestmentMetrics, MarketData, AnalystRecommendations, StockOverviewResponse, Officer,
     SectorTickerResponse, SectorAnalysisRequest, SectorAnalysisResponse, 
-    PerformanceAnalysisRequest, PerformanceAnalysisResponse
+    PerformanceAnalysisRequest, PerformanceAnalysisResponse,
+    StockComparisonRequest, StockComparisonResponse
 )
 from .services.yahoo_finance import YahooFinanceService
 from .services.krx_service import PyKRXService
@@ -410,4 +412,45 @@ async def analyze_market_performance(
         logger.error(f"성능 분석 API 오류: request={request.dict()}, error={e}", exc_info=True)
         if not isinstance(e, HTTPException):
             raise HTTPException(status_code=500, detail="서버 내부에서 성능 분석 중 오류가 발생했습니다.")
+        raise e
+    
+    # --- ✅ 주가 비교 분석 API 엔드포인트 ---
+@app.post("/api/stock/compare", response_model=StockComparisonResponse, tags=["Stock Analysis"])
+async def compare_stocks(
+    request: StockComparisonRequest,
+    yfs: YahooFinanceService = Depends(get_yahoo_finance_service)
+):
+    """
+    요청된 티커 목록에 대해 정규화된 주가 데이터를 반환합니다.
+    """
+    try:
+        # 서비스 함수를 호출하여 정규화된 데이터프레임 받기
+        df_normalized = await run_in_threadpool(
+            yfs.get_comparison_data,
+            request.tickers,
+            request.start_date,
+            request.end_date
+        )
+
+        if df_normalized is None or df_normalized.empty:
+            raise HTTPException(status_code=404, detail="분석할 유효한 주가 데이터를 찾을 수 없습니다.")
+
+        # 결과를 JSON 직렬화 가능한 형태로 포맷팅
+        df_normalized.index = df_normalized.index.strftime('%Y-%m-%d')
+        df_normalized = df_normalized.where(pd.notnull(df_normalized), None) # NaN -> null
+        
+        # recharts에 맞는 데이터 형태로 변환 ('date' 키 포함)
+        result_list = df_normalized.reset_index().to_dict(orient='records')
+        formatted_data = [{'date': item['Date'], **{k: v for k, v in item.items() if k != 'Date'}} for item in result_list]
+
+        # 차트의 각 라인(series) 정보 생성 (유효한 티커만 포함)
+        valid_tickers = df_normalized.columns.tolist()
+        series = [{"dataKey": ticker, "name": ticker} for ticker in valid_tickers]
+
+        return {"data": formatted_data, "series": series}
+
+    except Exception as e:
+        logger.error(f"주가 비교 분석 API 오류: request={request.dict()}, error={e}", exc_info=True)
+        if not isinstance(e, HTTPException):
+            raise HTTPException(status_code=500, detail="서버 내부에서 분석 중 오류가 발생했습니다.")
         raise e

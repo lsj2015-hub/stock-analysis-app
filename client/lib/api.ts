@@ -18,6 +18,8 @@ import {
   SectorAnalysisResponse,
   PerformanceAnalysisRequest,
   PerformanceAnalysisResponse,
+  StockComparisonRequest,
+  StockComparisonResponse,
 } from '../types/common';
 
 // 모든 API 요청에 대한 기본 URL
@@ -216,6 +218,20 @@ export const analyzePerformance = (
   requestData: PerformanceAnalysisRequest
 ): Promise<PerformanceAnalysisResponse> => {
   return fetchAPI(`${API_BASE_URL}/api/performance/analysis`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestData),
+  });
+};
+
+/**
+ * 여러 주식의 수익률을 비교 분석합니다.
+ * @param requestData - 티커 목록, 시작일, 종료일을 포함하는 객체
+ */
+export const compareStocks = (
+  requestData: StockComparisonRequest
+): Promise<StockComparisonResponse> => {
+  return fetchAPI(`${API_BASE_URL}/api/stock/compare`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(requestData),

@@ -252,7 +252,9 @@ export function PerformanceAnalysisSection() {
                   <Calendar
                     mode="single"
                     selected={dates.start}
-                    onSelect={(d) => setDates((v) => ({ ...v, start: d ?? undefined }))}
+                    onSelect={(d) =>
+                      setDates((v) => ({ ...v, start: d ?? undefined }))
+                    }
                   />
                 </PopoverContent>
               </Popover>
@@ -281,7 +283,9 @@ export function PerformanceAnalysisSection() {
                   <Calendar
                     mode="single"
                     selected={dates.end}
-                    onSelect={(d) => setDates((v) => ({ ...v, end: d ?? undefined }))}
+                    onSelect={(d) =>
+                      setDates((v) => ({ ...v, end: d ?? undefined }))
+                    }
                   />
                 </PopoverContent>
               </Popover>
@@ -333,7 +337,7 @@ export function PerformanceAnalysisSection() {
           )}
         </div>
       </CardContent>
-      <CardFooter className="flex justify-end border-t pt-6">
+      <CardFooter className="flex justify-end">
         <Button
           onClick={handleAnalyze}
           disabled={loading || !market || !dates.start || !dates.end}
