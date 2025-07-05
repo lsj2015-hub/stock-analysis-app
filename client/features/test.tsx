@@ -32,6 +32,13 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Card,
   CardContent,
   CardDescription,
@@ -43,27 +50,33 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// ✅ CustomTooltip을 다시 파일 최상단으로 이동시키고 로직을 수정합니다.
+// 비교할 지수 목록 정의 (Yahoo Finance 티커 기준)
+const INDEX_OPTIONS: Record<string, { name: string; ticker: string }[]> = {
+  KR: [
+    { name: '코스피', ticker: '^KS11' },
+    { name: '코스닥', ticker: '^KQ11' },
+  ],
+  US: [
+    { name: 'S&P 500', ticker: '^GSPC' },
+    { name: '나스닥', ticker: '^IXIC' },
+    { name: '다우존스', ticker: '^DJI' },
+  ],
+};
+
 const CustomTooltip = ({
   active,
   payload,
   label,
 }: TooltipProps<number, string>) => {
   if (active && payload && payload.length) {
-    // 툴팁에 표시될 데이터에서 '기준 (100)' 라인을 필터링하여 제외합니다.
     const filteredPayload = payload.filter((p) => p.name !== '기준 (100)');
-
-    // 필터링 후 보여줄 데이터가 없으면 툴팁을 렌더링하지 않습니다.
-    if (filteredPayload.length === 0) {
-      return null;
-    }
+    if (filteredPayload.length === 0) return null;
 
     return (
       <div className="rounded-lg border bg-background p-2 shadow-sm">
         <p className="text-sm text-muted-foreground mb-1">
           {format(new Date(label), 'yyyy년 M월 d일')}
         </p>
-        {/* 필터링된 모든 종목 데이터를 순회하며 표시합니다. */}
         {filteredPayload.map((item, index) => (
           <div key={index} className="flex justify-between items-center gap-4">
             <p className="text-sm font-bold" style={{ color: item.color }}>
@@ -102,13 +115,14 @@ export function CompareStocksSection() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ 단일 라인 툴팁을 위해 사용했던 상태를 제거합니다.
-  // const [activeDataKey, setActiveDataKey] = useState<string | null>(null);
+  // 지수 선택을 위한 상태 추가
+  const [indexCountry, setIndexCountry] = useState<string>('');
+  const [selectedIndex, setSelectedIndex] = useState<string>('');
 
   useEffect(() => {
     setIsClient(true);
     setDates({
-      start: subDays(new Date(), 7),
+      start: subDays(new Date(), 30), // 기본 기간 30일로 변경
       end: new Date(),
     });
   }, []);
@@ -120,12 +134,21 @@ export function CompareStocksSection() {
   };
 
   const handleAnalyze = useCallback(async () => {
-    const tickerList = tickerInputs
+    const stockTickers = tickerInputs
       .map((t) => t.trim().toUpperCase())
       .filter(Boolean);
 
-    if (tickerList.length === 0 || !dates.start || !dates.end) {
-      setError('기간을 선택하고, 비교할 티커를 1개 이상 입력해주세요.');
+    const finalTickers = [...stockTickers];
+    if (selectedIndex) {
+      finalTickers.push(selectedIndex);
+    }
+
+    const uniqueTickers = [...new Set(finalTickers)];
+
+    if (uniqueTickers.length === 0 || !dates.start || !dates.end) {
+      setError(
+        '기간을 선택하고, 비교할 종목이나 지수를 1개 이상 입력해주세요.'
+      );
       return;
     }
 
@@ -135,7 +158,7 @@ export function CompareStocksSection() {
 
     try {
       const response = await compareStocks({
-        tickers: tickerList,
+        tickers: uniqueTickers,
         start_date: format(dates.start, 'yyyy-MM-dd'),
         end_date: format(dates.end, 'yyyy-MM-dd'),
       });
@@ -145,33 +168,45 @@ export function CompareStocksSection() {
     } finally {
       setLoading(false);
     }
-  }, [dates, tickerInputs]);
+  }, [dates, tickerInputs, selectedIndex]);
 
   if (!isClient) {
     return <Skeleton className="h-[300px] w-full" />;
   }
 
-  const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#00C49F'];
+  const colors = [
+    '#8884d8',
+    '#82ca9d',
+    '#ffc658',
+    '#ff7300',
+    '#00C49F',
+    '#FF8042',
+  ];
 
   return (
     <Card className="rounded-2xl border-2 border-orange-400">
       <CardHeader>
         <CardTitle className="text-2xl font-semibold">
-          종목별 수익률 비교
+          종목 및 지수 수익률 비교
         </CardTitle>
         <CardDescription>
-          여러 종목의 주가 수익률을 정규화하여 비교합니다. (분석 시작일 = 100)
+          여러 종목과 시장 지수의 주가 수익률을 정규화하여 비교합니다. (분석
+          시작일 = 100)
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
-        {/* --- 설정 UI 부분 (변경 없음) --- */}
         <div className="space-y-6 p-6 border rounded-lg bg-muted/30">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+          {/* ✅ 1. 메인 섹션 컨테이너: 큰 화면(lg)에서 3단 그리드 속성 제거 */}
+          <div className="grid grid-cols-1 gap-y-6">
             <div className="space-y-3">
               <Label className="font-semibold">비교 종목 (최대 5개)</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+              {/* ✅ 2. 종목 입력 필드 컨테이너: 큰 화면(lg)에서 flex-row로 변경 */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-row lg:flex-wrap lg:gap-4">
                 {tickerInputs.map((ticker, index) => (
-                  <div key={index} className="flex items-center gap-2">
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 lg:flex-col lg:items-start"
+                  >
                     <Label
                       htmlFor={`ticker-${index}`}
                       className="min-w-[50px] text-sm text-muted-foreground"
@@ -185,81 +220,119 @@ export function CompareStocksSection() {
                       onChange={(e) =>
                         handleTickerChange(index, e.target.value)
                       }
-                      className="h-9"
+                      className="h-9 w-full"
                     />
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="space-y-3">
-              <Label className="font-semibold">분석 기간</Label>
-              <div className="flex items-center gap-4">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      id="start-date-compare"
-                      variant="outline"
-                      className={cn(
-                        'w-48 justify-start text-left font-normal',
-                        !dates.start && 'text-muted-foreground'
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dates.start ? (
-                        format(dates.start, 'PPP', { locale: ko })
-                      ) : (
-                        <span>시작일 선택</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={dates.start}
-                      onSelect={(d) =>
-                        setDates((v) => ({ ...v, start: d ?? undefined }))
-                      }
-                      disabled={(date) =>
-                        date > (dates.end || new Date()) ||
-                        date < new Date('1900-01-01')
-                      }
-                    />
-                  </PopoverContent>
-                </Popover>
-                <span className="text-muted-foreground">~</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      id="end-date-compare"
-                      variant="outline"
-                      className={cn(
-                        'w-f48 justify-start text-left font-normal',
-                        !dates.end && 'text-muted-foreground'
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dates.end ? (
-                        format(dates.end, 'PPP', { locale: ko })
-                      ) : (
-                        <span>종료일 선택</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={dates.end}
-                      onSelect={(d) =>
-                        setDates((v) => ({ ...v, end: d ?? undefined }))
-                      }
-                      disabled={(date) =>
-                        date > new Date() ||
-                        date < (dates.start || new Date('1900-01-01'))
-                      }
-                    />
-                  </PopoverContent>
-                </Popover>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+              {/* 지수 선택 UI */}
+              <div className="space-y-3">
+                <Label className="font-semibold">비교 지수 (선택)</Label>
+                <div className="flex items-center gap-4">
+                  <Select
+                    value={indexCountry}
+                    onValueChange={(v) => {
+                      setIndexCountry(v);
+                      setSelectedIndex('');
+                    }}
+                  >
+                    <SelectTrigger className="w-1/2">
+                      <SelectValue placeholder="국가 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="KR">한국</SelectItem>
+                      <SelectItem value="US">미국</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={selectedIndex}
+                    onValueChange={setSelectedIndex}
+                    disabled={!indexCountry}
+                  >
+                    <SelectTrigger className="w-1/2">
+                      <SelectValue placeholder="지수 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(INDEX_OPTIONS[indexCountry] || []).map((index) => (
+                        <SelectItem key={index.ticker} value={index.ticker}>
+                          {index.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* 분석 기간 UI */}
+              <div className="space-y-3">
+                <Label className="font-semibold">분석 기간</Label>
+                <div className="flex items-center gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="start-date-compare"
+                        variant="outline"
+                        className={cn(
+                          'w-full justify-start text-left font-normal'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dates.start ? (
+                          format(dates.start, 'PPP', { locale: ko })
+                        ) : (
+                          <span>시작일</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={dates.start}
+                        onSelect={(d) =>
+                          setDates((v) => ({ ...v, start: d ?? undefined }))
+                        }
+                        disabled={(date) =>
+                          date > (dates.end || new Date()) ||
+                          date < new Date('1900-01-01')
+                        }
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="end-date-compare"
+                        variant="outline"
+                        className={cn(
+                          'w-full justify-start text-left font-normal'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dates.end ? (
+                          format(dates.end, 'PPP', { locale: ko })
+                        ) : (
+                          <span>종료일</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={dates.end}
+                        onSelect={(d) =>
+                          setDates((v) => ({ ...v, end: d ?? undefined }))
+                        }
+                        disabled={(date) =>
+                          date > new Date() ||
+                          date < (dates.start || new Date('1900-01-01'))
+                        }
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
             </div>
           </div>
@@ -280,7 +353,6 @@ export function CompareStocksSection() {
           {!loading && chartData.data.length > 0 && (
             <div className="w-full h-[500px]">
               <ResponsiveContainer>
-                {/* ✅ 마우스 이벤트를 제거하여 기본 동작으로 복귀 */}
                 <LineChart
                   data={chartData.data}
                   margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
@@ -327,7 +399,6 @@ export function CompareStocksSection() {
                       strokeWidth={2}
                       dot={false}
                       activeDot={{ r: 6, strokeWidth: 2 }}
-                      // ✅ onMouseEnter를 제거하여 개별 라인 호버 동작 비활성화
                     />
                   ))}
                 </LineChart>
@@ -339,7 +410,10 @@ export function CompareStocksSection() {
       <CardFooter className="flex justify-end">
         <Button
           onClick={handleAnalyze}
-          disabled={loading || tickerInputs.every((t) => t.trim() === '')}
+          disabled={
+            loading ||
+            (tickerInputs.every((t) => t.trim() === '') && !selectedIndex)
+          }
         >
           {loading ? '분석 중...' : '분석 실행'}
         </Button>

@@ -49,7 +49,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const MARKET_OPTIONS: Record<string, string[]> = {
-  US: ['NASDAQ', 'NYSE', 'S&P 500'],
+  US: ['NASDAQ', 'NYSE', 'S&P500'],
   KR: ['KOSPI', 'KOSDAQ'],
 };
 
@@ -75,7 +75,7 @@ export function PerformanceAnalysisSection() {
   const [dates, setDates] = useState<{ start?: Date; end?: Date }>({});
   const [country, setCountry] = useState<string>('US');
   const [market, setMarket] = useState<string>('');
-  const [topN, setTopN] = useState<number>(5);
+  const [topN, setTopN] = useState<number>(10);
 
   const [analysisData, setAnalysisData] =
     useState<PerformanceAnalysisResponse | null>(null);
@@ -139,40 +139,48 @@ export function PerformanceAnalysisSection() {
     data: StockPerformance[];
     title: string;
     barColor: string;
-  }) => (
-    <div>
-      <h3 className="text-lg font-semibold text-center mb-2">{title}</h3>
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart
-          data={data}
-          layout="vertical"
-          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            type="number"
-            tickFormatter={(tick) => `${tick.toFixed(0)}%`}
-          />
-          <YAxis
-            dataKey="name"
-            type="category"
-            width={80}
-            tick={{ fontSize: 12 }}
-          />
-          <Tooltip
-            content={<CustomTooltip />}
-            cursor={{ fill: 'rgba(206, 206, 206, 0.2)' }}
-          />
-          <Legend />
-          <Bar dataKey="performance" name="수익률">
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={barColor} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
+  }) => {
+    const chartHeight = Math.max(300, data.length * 40);
+    const formatYAxisLabel = (label: string) =>
+      label.length > 18 ? `${label.substring(0, 18)}...` : label;
+
+    return (
+      <div>
+        <h3 className="text-lg font-semibold text-center mb-2">{title}</h3>
+        <ResponsiveContainer width="100%" height={chartHeight}>
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 5, right: 30, left: 20, bottom: 20 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              type="number"
+              tickFormatter={(tick) => `${tick.toFixed(0)}%`}
+            />
+            <YAxis
+              dataKey="name"
+              type="category"
+              width={120}
+              tick={{ fontSize: 12 }}
+              tickFormatter={formatYAxisLabel}
+              interval={0}
+            />
+            <Tooltip
+              content={<CustomTooltip />}
+              cursor={{ fill: 'rgba(206, 206, 206, 0.2)' }}
+            />
+            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+            <Bar dataKey="performance" name="수익률">
+              {data.map((entry) => (
+                <Cell key={entry.ticker} fill={barColor} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  };
 
   return (
     <Card className="rounded-2xl border-2 border-purple-400">
@@ -188,7 +196,6 @@ export function PerformanceAnalysisSection() {
         {/* --- 입력 섹션 --- */}
         <div className="space-y-6 p-6 border rounded-lg bg-muted/30">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 items-end">
-            {/* 국가 선택 */}
             <div className="flex flex-col space-y-2">
               <Label>국가</Label>
               <Select
@@ -207,7 +214,6 @@ export function PerformanceAnalysisSection() {
                 </SelectContent>
               </Select>
             </div>
-            {/* 시장 선택 */}
             <div className="flex flex-col space-y-2">
               <Label>시장</Label>
               <Select
@@ -221,13 +227,13 @@ export function PerformanceAnalysisSection() {
                 <SelectContent>
                   {(MARKET_OPTIONS[country] || []).map((m) => (
                     <SelectItem key={m} value={m}>
-                      {m}
+                      {' '}
+                      {m}{' '}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            {/* 기간 선택 */}
             <div className="flex flex-col space-y-2">
               <Label htmlFor="start-date">시작일</Label>
               <Popover>
@@ -290,7 +296,6 @@ export function PerformanceAnalysisSection() {
                 </PopoverContent>
               </Popover>
             </div>
-            {/* 종목 수 입력 */}
             <div className="flex flex-col space-y-2">
               <Label htmlFor="top-n">종목 수 (N)</Label>
               <Input
@@ -305,7 +310,6 @@ export function PerformanceAnalysisSection() {
           </div>
         </div>
 
-        {/* --- 분석 결과 섹션 --- */}
         {error && (
           <p className="text-red-500 text-center text-sm font-semibold">
             {error}
@@ -314,15 +318,12 @@ export function PerformanceAnalysisSection() {
 
         <div className="mt-6">
           {loading && (
-            <div className="space-y-4">
-              <Skeleton className="h-8 w-1/4 mx-auto" />
-              <Skeleton className="h-72 w-full" />
-              <Skeleton className="h-8 w-1/4 mx-auto mt-4" />
-              <Skeleton className="h-72 w-full" />
+            <div className="w-full">
+              <Skeleton className="h-[200px] w-full" />
             </div>
           )}
           {!loading && analysisData && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-8">
               <PerformanceChart
                 data={analysisData.top_performers}
                 title="수익률 상위 종목"

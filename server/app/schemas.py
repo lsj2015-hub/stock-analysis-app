@@ -1,6 +1,6 @@
 # app/schemas.py
 from pydantic import BaseModel, Field, HttpUrl
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 
 class TranslationRequest(BaseModel):
     text: str
@@ -187,3 +187,35 @@ class StockComparisonSeries(BaseModel):
 class StockComparisonResponse(BaseModel):
     data: List[StockComparisonDataPoint]
     series: List[StockComparisonSeries]
+
+# --- ✅ 투자자별 매매동향 분석 기능에 필요한 스키마 ---
+class TradingVolumeRequest(BaseModel):
+    start_date: str = Field(..., description="분석 시작일 (YYYYMMDD)")
+    end_date: str = Field(..., description="분석 종료일 (YYYYMMDD)")
+    ticker: str = Field("KOSPI", description="시장(KOSPI, KOSDAQ) 또는 종목코드")
+    detail: bool = Field(False, description="일자별 상세 현황 조회 여부")
+    institution_only: bool = Field(False, description="기관 투자자 세부 항목만 조회 여부")
+
+class TradingVolumeData(BaseModel):
+    # 동적 키 (날짜 또는 투자자구분)를 허용
+    class Config:
+        extra = "allow"
+
+class TradingVolumeResponse(BaseModel):
+    index_name: str
+    data: List[Dict[str, Any]] # ✅ 'any'를 'Any'로 수정
+
+class NetPurchaseRequest(BaseModel):
+    start_date: str = Field(..., description="분석 시작일 (YYYYMMDD)")
+    end_date: str = Field(..., description="분석 종료일 (YYYYMMDD)")
+    market: str = Field(..., description="시장 (KOSPI, KOSDAQ)")
+    investor: str = Field(..., description="투자자 구분")
+
+class NetPurchaseData(BaseModel):
+    ticker: str
+    name: str
+    volume: int
+    value: int
+
+class NetPurchaseResponse(BaseModel):
+    data: List[NetPurchaseData]

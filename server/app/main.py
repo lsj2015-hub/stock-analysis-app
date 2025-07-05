@@ -17,7 +17,8 @@ from .schemas import (
     InvestmentMetrics, MarketData, AnalystRecommendations, StockOverviewResponse, Officer,
     SectorTickerResponse, SectorAnalysisRequest, SectorAnalysisResponse, 
     PerformanceAnalysisRequest, PerformanceAnalysisResponse,
-    StockComparisonRequest, StockComparisonResponse
+    StockComparisonRequest, StockComparisonResponse,
+    TradingVolumeRequest, TradingVolumeResponse, NetPurchaseRequest, NetPurchaseResponse
 )
 from .services.yahoo_finance import YahooFinanceService
 from .services.krx_service import PyKRXService
@@ -454,3 +455,54 @@ async def compare_stocks(
         if not isinstance(e, HTTPException):
             raise HTTPException(status_code=500, detail="서버 내부에서 분석 중 오류가 발생했습니다.")
         raise e
+    
+    # --- ✅ 투자자별 매매동향 API 엔드포인트 ---
+@app.post("/api/krx/trading-volume", response_model=TradingVolumeResponse, tags=["Krx Analysis"])
+async def get_trading_volume(
+    request: TradingVolumeRequest,
+    krx: PyKRXService = Depends(get_krx_service)
+):
+    try:
+        df = await run_in_threadpool(
+            krx.get_trading_performance_by_investor,
+            request.start_date,
+            request.end_date,
+            request.ticker,
+            request.detail,
+            request.institution_only # ✅ 파라미터 추가
+        )
+        if df.empty:
+            raise HTTPException(status_code=404, detail="해당 조건의 데이터를 찾을 수 없습니다.")
+
+        response_data = {
+            "index_name": df.columns[0],
+            "data": df.to_dict(orient='records')
+        }
+        return response_data
+    except Exception as e:
+        logger.error(f"투자자별 매매현황 조회 API 오류: request={request.dict()}, error={e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="서버 내부에서 조회 중 오류가 발생했습니다.")
+
+@app.post("/api/krx/net-purchases", response_model=NetPurchaseResponse, tags=["Krx Analysis"])
+async def get_top_net_purchases(
+    request: NetPurchaseRequest,
+    krx: PyKRXService = Depends(get_krx_service)
+):
+    """
+    선택된 투자자의 순매수 상위 종목을 조회합니다.
+    """
+    try:
+        df = await run_in_threadpool(
+            krx.get_net_purchase_ranking_by_investor,
+            request.start_date,
+            request.end_date,
+            request.market,
+            request.investor
+        )
+        if df.empty:
+            raise HTTPException(status_code=404, detail="해당 조건의 데이터를 찾을 수 없습니다.")
+
+        return {"data": df.to_dict(orient='records')}
+    except Exception as e:
+        logger.error(f"투자자별 순매수 상위종목 조회 API 오류: request={request.dict()}, error={e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="서버 내부에서 조회 중 오류가 발생했습니다.")

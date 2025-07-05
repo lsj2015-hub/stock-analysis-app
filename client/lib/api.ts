@@ -20,13 +20,17 @@ import {
   PerformanceAnalysisResponse,
   StockComparisonRequest,
   StockComparisonResponse,
+  TradingVolumeRequest,
+  TradingVolumeResponse,
+  NetPurchaseRequest,
+  NetPurchaseResponse,
 } from '../types/common';
 
 // 모든 API 요청에 대한 기본 URL
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
-// 1. API 에러를 위한 커스텀 클래스
+// API 에러를 위한 커스텀 클래스
 export class APIError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -232,6 +236,27 @@ export const compareStocks = (
   requestData: StockComparisonRequest
 ): Promise<StockComparisonResponse> => {
   return fetchAPI(`${API_BASE_URL}/api/stock/compare`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestData),
+  });
+};
+
+// --- ✅ 투자자별 매매동향 API 함수들 ---
+export const getTradingVolume = (
+  requestData: TradingVolumeRequest
+): Promise<TradingVolumeResponse> => {
+  return fetchAPI(`${API_BASE_URL}/api/krx/trading-volume`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestData),
+  });
+};
+
+export const getTopNetPurchases = (
+  requestData: NetPurchaseRequest
+): Promise<NetPurchaseResponse> => {
+  return fetchAPI(`${API_BASE_URL}/api/krx/net-purchases`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(requestData),

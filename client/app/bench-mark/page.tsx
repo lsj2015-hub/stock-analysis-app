@@ -4,6 +4,7 @@ import ScrollToTopButton from '@/components/shared/ScrollToTopButton';
 import { SectorAnalysisSection } from '@/features/SectorAnalysisSection';
 import { PerformanceAnalysisSection } from '@/features/PerformanceAnalysisSection';
 import { CompareStocksSection } from '../../features/CompareStocksSection';
+import { TradingEntitySection } from '../../features/TradingEntitySection';
 
 const page = () => {
   return (
@@ -29,6 +30,7 @@ const page = () => {
         <SectorAnalysisSection />
         <PerformanceAnalysisSection />
         <CompareStocksSection />
+        <TradingEntitySection />
       </div>
 
       {/* ✅ 플로팅 버튼 컴포넌트 추가 */}

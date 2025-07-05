@@ -94,3 +94,39 @@ export interface StockComparisonResponse {
   data: StockComparisonDataPoint[];
   series: StockComparisonSeries[];
 }
+
+// --- 투자자별 매매동향 분석 관련 타입 ---
+export interface TradingVolumeRequest {
+  start_date: string;
+  end_date: string;
+  ticker: string;
+  detail: boolean;
+  institution_only: boolean;
+}
+
+export interface TradingVolumeData {
+  [key: string]: string | number;
+}
+
+export interface TradingVolumeResponse {
+  index_name: string;
+  data: TradingVolumeData[];
+}
+
+export interface NetPurchaseRequest {
+  start_date: string;
+  end_date: string;
+  market: 'KOSPI' | 'KOSDAQ';
+  investor: string;
+}
+
+export interface NetPurchaseData {
+  ticker: string;
+  name: string;
+  volume: number;
+  value: number;
+}
+
+export interface NetPurchaseResponse {
+  data: NetPurchaseData[];
+}
