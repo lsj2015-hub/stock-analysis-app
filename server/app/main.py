@@ -18,7 +18,8 @@ from .schemas import (
     SectorTickerResponse, SectorAnalysisRequest, SectorAnalysisResponse, 
     PerformanceAnalysisRequest, PerformanceAnalysisResponse,
     StockComparisonRequest, StockComparisonResponse,
-    TradingVolumeRequest, TradingVolumeResponse, NetPurchaseRequest, NetPurchaseResponse
+    TradingVolumeRequest, TradingVolumeResponse, NetPurchaseRequest, NetPurchaseResponse,
+    FluctuationAnalysisRequest, FluctuationAnalysisResponse
 )
 from .services.yahoo_finance import YahooFinanceService
 from .services.krx_service import PyKRXService
@@ -26,6 +27,7 @@ from .services.news import NewsService
 from .services.translation import TranslationService
 from .services.llm import LLMService
 from .services.performance_service import PerformanceService
+from .services.fluctuation_service import FluctuationService
 
 from .core import formatting
 
@@ -51,6 +53,7 @@ news_service = NewsService()
 performance_service = PerformanceService()
 translation_service = TranslationService()
 llm_service = LLMService(settings)
+fluctuation_service = FluctuationService()
 
 # 환율 정보 캐시 (1시간 TTL)
 exchange_rate_cache = TTLCache(maxsize=1, ttl=settings.CACHE_TTL_SECONDS)
@@ -102,6 +105,9 @@ def get_krx_service() -> PyKRXService:
 def get_performance_service() -> PerformanceService:
     return performance_service
 
+def get_fluctuation_service() -> FluctuationService:
+    return fluctuation_service
+
 def get_news_service() -> NewsService:
     return news_service
 
@@ -132,7 +138,15 @@ async def get_yfinance_info(
     symbol: str,
     yfs: YahooFinanceService = Depends(get_yahoo_finance_service)
 ) -> dict:
-    info = await run_in_threadpool(yfs.get_stock_info, symbol.upper())
+    symbol_upper = symbol.upper()
+    info = None
+    if len(symbol_upper) == 6 and symbol_upper.isdigit():
+        logger.info(f"'{symbol_upper}'는 한국 주식이므로 pykrx와 yfinance(.KS/.KQ)로 정보를 조합합니다.")
+        info = await run_in_threadpool(yfs.get_kr_stock_info_combined, symbol_upper)
+    else:
+        logger.info(f"'{symbol_upper}'는 해외 주식이므로 yfinance로 정보를 조회합니다.")
+        info = await run_in_threadpool(yfs.get_stock_info, symbol_upper)
+
     if not info:
         raise HTTPException(status_code=404, detail=f"'{symbol.upper()}'에 대한 기업 정보를 찾을 수 없습니다.")
     return info
@@ -279,22 +293,25 @@ async def get_financial_statement(
 # ✨ 기간별 주가 히스토리 조회
 @app.get("/api/stock/{symbol}/history", response_model=PriceHistoryResponse, tags=["Stock Details"])
 async def get_stock_history(
-    symbol: str, 
-    start_date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"), 
+    symbol: str,
+    start_date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
     end_date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
-    yfs: YahooFinanceService = Depends(get_yahoo_finance_service)
+    yfs: YahooFinanceService = Depends(get_yahoo_finance_service),
+    krx: PyKRXService = Depends(get_krx_service)
 ):
-
-    df_raw, adjusted_end = await run_in_threadpool(yfs.get_price_history, symbol.upper(), start_date, end_date)
+    symbol_upper = symbol.upper()
+    df_raw, adjusted_end = None, None
+    if len(symbol_upper) == 6 and symbol_upper.isdigit():
+        df_raw, adjusted_end = await run_in_threadpool(krx.get_price_history_kr, symbol_upper, start_date, end_date)
+    else:
+        df_raw, adjusted_end = await run_in_threadpool(yfs.get_price_history, symbol_upper, start_date, end_date)
     if df_raw is None or df_raw.empty:
         raise HTTPException(status_code=404, detail=f"해당 기간의 주가 데이터를 찾을 수 없습니다.")
-    
     display_df = formatting.process_price_dataframe(df_raw)
-    
     return {
-        "symbol": symbol.upper(),
+        "symbol": symbol_upper,
         "startDate": start_date,
-        "endDate": adjusted_end,
+        "endDate": adjusted_end if adjusted_end else end_date,
         "data": display_df.to_dict("records")
     }
 
@@ -415,7 +432,7 @@ async def analyze_market_performance(
             raise HTTPException(status_code=500, detail="서버 내부에서 성능 분석 중 오류가 발생했습니다.")
         raise e
     
-    # --- ✅ 주가 비교 분석 API 엔드포인트 ---
+# --- ✅ 주가 비교 분석 API 엔드포인트 ---
 @app.post("/api/stock/compare", response_model=StockComparisonResponse, tags=["Stock Analysis"])
 async def compare_stocks(
     request: StockComparisonRequest,
@@ -456,7 +473,7 @@ async def compare_stocks(
             raise HTTPException(status_code=500, detail="서버 내부에서 분석 중 오류가 발생했습니다.")
         raise e
     
-    # --- ✅ 투자자별 매매동향 API 엔드포인트 ---
+# --- ✅ 투자자별 매매동향 API 엔드포인트 ---
 @app.post("/api/krx/trading-volume", response_model=TradingVolumeResponse, tags=["Krx Analysis"])
 async def get_trading_volume(
     request: TradingVolumeRequest,
@@ -506,3 +523,22 @@ async def get_top_net_purchases(
     except Exception as e:
         logger.error(f"투자자별 순매수 상위종목 조회 API 오류: request={request.dict()}, error={e}", exc_info=True)
         raise HTTPException(status_code=500, detail="서버 내부에서 조회 중 오류가 발생했습니다.")
+    
+# ✅ 변동성 분석 엔드포인트
+@app.post("/api/stocks/fluctuation-analysis", response_model=FluctuationAnalysisResponse, tags=["Stock Analysis"])
+async def analyze_fluctuation(
+    request: FluctuationAnalysisRequest,
+    fs: FluctuationService = Depends(get_fluctuation_service)
+):
+    try:
+        found_stocks = await run_in_threadpool(
+            fs.find_fluctuation_stocks,
+            country=request.country, market=request.market,
+            start_date=request.start_date, end_date=request.end_date,
+            decline_period=request.decline_period, decline_rate=request.decline_rate,
+            rebound_period=request.rebound_period, rebound_rate=request.rebound_rate,
+        )
+        return {"found_stocks": found_stocks}
+    except Exception as e:
+        logger.error(f"변동성 분석 API 오류: request={request.dict()}, error={e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="서버 내부에서 변동성 분석 중 오류가 발생했습니다.")

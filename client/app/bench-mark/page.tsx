@@ -5,6 +5,7 @@ import { SectorAnalysisSection } from '@/features/SectorAnalysisSection';
 import { PerformanceAnalysisSection } from '@/features/PerformanceAnalysisSection';
 import { CompareStocksSection } from '../../features/CompareStocksSection';
 import { TradingEntitySection } from '../../features/TradingEntitySection';
+import { FluctuationAnalysisSection } from '../../features/FluctuationAnalysisSection';
 
 const page = () => {
   return (
@@ -31,6 +32,7 @@ const page = () => {
         <PerformanceAnalysisSection />
         <CompareStocksSection />
         <TradingEntitySection />
+        <FluctuationAnalysisSection />
       </div>
 
       {/* ✅ 플로팅 버튼 컴포넌트 추가 */}

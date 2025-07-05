@@ -219,3 +219,36 @@ class NetPurchaseData(BaseModel):
 
 class NetPurchaseResponse(BaseModel):
     data: List[NetPurchaseData]
+
+# --- 변동성 종목 분석 기능에 필요한 스키마 ---
+class FluctuationAnalysisRequest(BaseModel):
+    country: str = Field(..., description="분석할 국가 ('KR' 또는 'US')")
+    market: str = Field(..., description="분석할 시장 (예: 'KOSPI', 'NASDAQ')")
+    start_date: str = Field(..., description="분석 시작일 (YYYY-MM-DD)")
+    end_date: str = Field(..., description="분석 종료일 (YYYY-MM-DD)")
+    decline_period: int = Field(5, description="하락 기간 (일)")
+    decline_rate: float = Field(-20.0, description="하락률 (%)")
+    rebound_period: int = Field(20, description="반등 기간 (일)")
+    rebound_rate: float = Field(20.0, description="반등률 (%)")
+
+class EventInfo(BaseModel):
+    ticker: str
+    name: str
+    trough_date: str
+    trough_price: float
+    rebound_date: str
+    rebound_price: float
+    rebound_performance: float
+
+class FluctuationStockInfo(BaseModel):
+    ticker: str
+    name: str
+    occurrence_count: int
+    recent_trough_date: str
+    recent_trough_price: float
+    recent_rebound_date: str
+    recent_rebound_performance: float
+    events: List[EventInfo]
+
+class FluctuationAnalysisResponse(BaseModel):
+    found_stocks: List[FluctuationStockInfo]

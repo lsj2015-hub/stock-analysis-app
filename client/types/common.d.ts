@@ -130,3 +130,40 @@ export interface NetPurchaseData {
 export interface NetPurchaseResponse {
   data: NetPurchaseData[];
 }
+
+// --- 변동성 종목 분석 관련 타입 ---
+export interface FluctuationAnalysisRequest {
+  country: string;
+  market: string;
+  start_date: string;
+  end_date: string;
+  decline_period: number;
+  decline_rate: number;
+  rebound_period: number;
+  rebound_rate: number;
+}
+
+export interface EventInfo {
+  ticker: string;
+  name: string;
+  trough_date: string;
+  trough_price: number;
+  rebound_date: string;
+  rebound_price: number;
+  rebound_performance: number;
+}
+
+export interface FluctuationStockInfo {
+  ticker: string;
+  name: string;
+  occurrence_count: number;
+  recent_trough_date: string;
+  recent_trough_price: number;
+  recent_rebound_date: string;
+  recent_rebound_performance: number;
+  events: EventInfo[];
+}
+
+export interface FluctuationAnalysisResponse {
+  found_stocks: FluctuationStockInfo[];
+}

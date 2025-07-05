@@ -24,6 +24,8 @@ import {
   TradingVolumeResponse,
   NetPurchaseRequest,
   NetPurchaseResponse,
+  FluctuationAnalysisRequest,
+  FluctuationAnalysisResponse,
 } from '../types/common';
 
 // 모든 API 요청에 대한 기본 URL
@@ -257,6 +259,20 @@ export const getTopNetPurchases = (
   requestData: NetPurchaseRequest
 ): Promise<NetPurchaseResponse> => {
   return fetchAPI(`${API_BASE_URL}/api/krx/net-purchases`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestData),
+  });
+};
+
+/**
+ * @description 변동성 종목 분석을 요청합니다.
+ * @param requestData
+ */
+export const analyzeFluctuations = (
+  requestData: FluctuationAnalysisRequest
+): Promise<FluctuationAnalysisResponse> => {
+  return fetchAPI(`${API_BASE_URL}/api/stocks/fluctuation-analysis`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(requestData),

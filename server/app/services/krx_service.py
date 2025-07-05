@@ -3,7 +3,7 @@ import pandas as pd
 import time
 from pykrx import stock
 import logging
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Tuple
 from datetime import datetime, timedelta
 from ..core.sector_data import SECTOR_GROUPS
 
@@ -14,19 +14,9 @@ class PyKRXService:
         return SECTOR_GROUPS
 
     def get_tickers_by_group(self, market: str, group: str) -> List[tuple[str, str]]:
-        if group == '전체 보기':
-            tickers = stock.get_index_ticker_list(market=market)
-        else:
-            tickers = SECTOR_GROUPS.get(market, {}).get(group, [])
+        tickers = stock.get_index_ticker_list(market=market) if group == '전체 보기' else SECTOR_GROUPS.get(market, {}).get(group, [])
+        return [(t, stock.get_index_ticker_name(t)) for t in tickers if t]
 
-        ticker_names = []
-        for ticker in tickers:
-            try:
-                name = stock.get_index_ticker_name(ticker)
-                ticker_names.append((ticker, name))
-            except Exception:
-                continue
-        return ticker_names
 
     def analyze_sector_performance(self, start_date: str, end_date: str, tickers: List[str]) -> List[Dict]:
         latest_business_day = None
@@ -142,3 +132,14 @@ class PyKRXService:
         df = df.reset_index()
         df = df.rename(columns={"티커": "ticker", "종목명": "name", "순매수거래량": "volume", "순매수거래대금": "value"})
         return df
+        
+    def get_price_history_kr(self, symbol: str, start: str, end: str) -> tuple[pd.DataFrame | None, str | None]:
+        try:
+            df = stock.get_market_ohlcv(start.replace('-', ''), end.replace('-', ''), symbol)
+            if df.empty: return None, None
+            df.reset_index(inplace=True)
+            df.rename(columns={'날짜': 'Date', '시가': 'Open', '고가': 'High', '저가': 'Low', '종가': 'Close', '거래량': 'Volume'}, inplace=True)
+            return df, df['Date'].max().strftime('%Y-%m-%d')
+        except Exception as e:
+            logger.error(f"pykrx: '{symbol}' 가격 조회 중 예외 발생: {e}", exc_info=True)
+            return None, None
