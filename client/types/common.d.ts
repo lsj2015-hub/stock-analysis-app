@@ -1,5 +1,4 @@
 // - API로부터 받아오는 개별 주식 뉴스 기사의 타입 정의 ---
-
 export interface StockNews {
   title: string;
   url: string;
@@ -11,7 +10,6 @@ export interface StockNews {
 }
 
 // --- 섹터 분석 관련 타입 ---
-
 export interface SectorGroups {
   [market: string]: {
     [group: string]: string[];

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useState, useEffect, useCallback, Fragment } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format, subDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { analyzeFluctuations, getStockHistory } from '@/lib/api';
 import { FluctuationStockInfo, EventInfo } from '@/types/common';
-import { StockHistoryData } from '@/types/stock';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -40,110 +39,13 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  ReferenceDot,
-} from 'recharts';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { FluctuationTable } from './displays/FluctuationTable'; // ✅ 새로 만든 테이블 컴포넌트 import
+import { StockHistoryData } from '../types/stock';
 
 const MARKET_OPTIONS: Record<string, string[]> = {
   US: ['NASDAQ', 'NYSE', 'S&P500'],
   KR: ['KOSPI', 'KOSDAQ'],
-};
-
-// 상세 차트 컴포넌트
-const DetailChart = ({
-  history,
-  events,
-  ticker,
-}: {
-  history: StockHistoryData[];
-  events: EventInfo[];
-  ticker: string;
-}) => {
-  if (!history || history.length === 0) {
-    return (
-      <div className="text-center p-4 text-red-500">
-        차트 데이터를 불러오는 데 실패했습니다.
-      </div>
-    );
-  }
-  const eventDates = new Set(events.map((e) => e.trough_date));
-
-  // 커스텀 툴팁
-  const CustomTooltipContent = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-background/90 p-2 border rounded-md shadow-lg text-sm">
-          <p className="font-bold">{label}</p>
-          <p
-            style={{ color: payload[0].stroke }}
-          >{`종가: ${payload[0].value.toFixed(2)}`}</p>
-          {eventDates.has(label) && (
-            <p className="text-red-500 font-bold mt-1">🔻 저점 발생</p>
-          )}
-        </div>
-      );
-    }
-    return null;
-  };
-
-  return (
-    <div className="p-4 bg-gray-50 rounded-lg">
-      <h4 className="text-md font-semibold mb-2">{ticker} 주가 차트</h4>
-      <ResponsiveContainer width="100%" height={300}>
-        <LineChart
-          data={history}
-          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="Date" tick={{ fontSize: 12 }} />
-          <YAxis
-            domain={['auto', 'auto']}
-            tickFormatter={(val) => val.toLocaleString()}
-            tick={{ fontSize: 12 }}
-          />
-          <Tooltip content={<CustomTooltipContent />} />
-          <Legend />
-          <Line
-            type="monotone"
-            dataKey="Close"
-            name="종가"
-            stroke="#8884d8"
-            dot={false}
-            strokeWidth={2}
-          />
-          {events.map((event) => (
-            <ReferenceDot
-              key={event.trough_date}
-              x={event.trough_date}
-              y={event.trough_price}
-              r={5}
-              fill="#ef4444"
-              stroke="white"
-              strokeWidth={1}
-              ifOverflow="extendDomain"
-            />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
 };
 
 export function FluctuationAnalysisSection() {
@@ -423,71 +325,13 @@ export function FluctuationAnalysisSection() {
           </Alert>
         )}
 
+        {/* ✅ 새로 만든 FluctuationTable 컴포넌트를 사용하여 렌더링 */}
         {!loading && analysisData.length > 0 && (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-center">종목코드</TableHead>
-                <TableHead className="text-center">종목명</TableHead>
-                <TableHead className="text-center">발생 횟수</TableHead>
-                <TableHead className="text-center">최근 하락일</TableHead>
-                <TableHead className="text-center">최근 하락일 종가</TableHead>
-                <TableHead className="text-center">최근 최대반등일</TableHead>
-                <TableHead className="text-center">
-                  최근 최대반등률(%)
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {analysisData.map((stock) => (
-                <Fragment key={stock.ticker}>
-                  <TableRow
-                    onClick={() => handleRowClick(stock)}
-                    className="cursor-pointer hover:bg-muted/50"
-                  >
-                    <TableCell className="text-right">{stock.ticker}</TableCell>
-                    <TableCell className="text-right">{stock.name}</TableCell>
-                    <TableCell className="text-right font-bold">
-                      {stock.occurrence_count}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {stock.recent_trough_date}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {stock.recent_trough_price.toLocaleString(undefined, {
-                        maximumFractionDigits: 2,
-                      })}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {stock.recent_rebound_date}
-                    </TableCell>
-                    <TableCell className="text-right text-green-600 font-semibold">
-                      {stock.recent_rebound_performance.toFixed(2)}%
-                    </TableCell>
-                  </TableRow>
-                  {selectedTicker?.ticker === stock.ticker && (
-                    <TableRow>
-                      <TableCell colSpan={7}>
-                        {selectedTicker.error ? (
-                          <p className="text-red-500 text-center p-4">
-                            {selectedTicker.error}
-                          </p>
-                        ) : selectedTicker.history.length > 0 ? (
-                          <DetailChart
-                            history={selectedTicker.history}
-                            events={selectedTicker.events}
-                            ticker={stock.name}
-                          />
-                        ) : (
-                          <Skeleton className="w-full h-[300px]" />
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </Fragment>
-              ))}
-            </TableBody>
-          </Table>
+          <FluctuationTable
+            analysisData={analysisData}
+            selectedTicker={selectedTicker}
+            onRowClick={handleRowClick}
+          />
         )}
         {!loading && !error && analysisData.length === 0 && (
           <p className="text-center text-muted-foreground pt-4">
