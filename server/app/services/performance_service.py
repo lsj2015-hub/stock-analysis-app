@@ -1,4 +1,3 @@
-# server/app/services/performance_service.py
 import pandas as pd
 import yfinance as yf
 from pykrx import stock

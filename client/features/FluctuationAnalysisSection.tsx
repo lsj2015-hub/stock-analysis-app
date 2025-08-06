@@ -74,7 +74,7 @@ export function FluctuationAnalysisSection() {
     setIsClient(true);
     const today = new Date();
     setDates({
-      start: subDays(today, 365),
+      start: subDays(today, 7),
       end: today,
     });
   }, []);

@@ -1,4 +1,3 @@
-# app/services/translation.py
 from deep_translator import GoogleTranslator
 
 class TranslationService:

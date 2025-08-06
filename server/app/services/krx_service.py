@@ -1,4 +1,3 @@
-# server/app/services/krx_service.py
 import pandas as pd
 import time
 from pykrx import stock

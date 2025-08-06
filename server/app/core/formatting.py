@@ -1,6 +1,4 @@
-# app/core/formatting.py
 import pandas as pd
-from typing import Dict, List, Any
 from datetime import datetime
 from .constants import INCOME_KR, BALANCE_KR, CASHFLOW_KR
 
